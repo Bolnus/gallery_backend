@@ -1,20 +1,20 @@
-import { selectAlbumPicturesByAlbum } from "./albumPicturesCollection.js";
-import { selectAlbumById, selectAlbumsList } from "./albumsCollection.js";
-import { AlbumsDataListItem } from "./databaseTypes.js";
-import { selectAlbumTags } from "./tagAlbumsCollection.js";
+import { selectAlbumPicturesByAlbum } from "./pictures/albumPicturesCollection.js";
+import { selectAlbumById, selectAlbumsList } from "./albums/albumsCollection.js";
+import { selectAlbumTags } from "./tags/tagAlbumsCollection.js";
+import { AlbumsDataListItem, AlbumsDataWithTotal } from "./albums/types.js";
 
 
 export async function selectAlbumsDataList(
   albumsListStart: number = 0,
   albumsListEnd: number = 50
-): Promise<AlbumsDataListItem[]> 
+): Promise<AlbumsDataWithTotal> 
 {
-  const albumsList = await selectAlbumsList(albumsListStart, albumsListEnd);
+  const albumsListWithTotal = await selectAlbumsList(albumsListStart, albumsListEnd);
   const exportAlbumListItems: AlbumsDataListItem[] = [];
-  for (const albumListItem of albumsList) 
+  for (const albumListItem of albumsListWithTotal.albumsList) 
   {
     const albumTags = await selectAlbumTags(albumListItem.albumName);
-    const albumPictures = await selectAlbumPicturesByAlbum(albumListItem._id.toString(), 5);
+    const albumPictures = await selectAlbumPicturesByAlbum(albumListItem._id.toString(), 6);
     exportAlbumListItems.push({
       _id: albumListItem._id,
       albumName: albumListItem.albumName,
@@ -24,7 +24,10 @@ export async function selectAlbumsDataList(
       pictureIds: albumPictures
     });
   }
-  return exportAlbumListItems;
+  return {
+    albumsList: exportAlbumListItems,
+    totalCount: albumsListWithTotal.totalCount
+  };
 }
 
 export async function selectAlbumData(albumId: string): Promise<AlbumsDataListItem | null> 

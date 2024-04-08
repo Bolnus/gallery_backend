@@ -41,7 +41,9 @@
     ],
     "max-len": [
       "warn",
-      { "code": 120, "ignorePattern": "^\\s*(// eslint-disable-)|(describe)|(test).+"
+      {
+        "code": 120,
+        "ignorePattern": "^\\s*(// eslint-disable-)|(describe)|(test).+"
       }
     ],
     "import/no-extraneous-dependencies": "off",
@@ -88,7 +90,10 @@
     "array-callback-return": "off",
     "no-shadow": [
       "warn",
-      { "builtinGlobals": true, "hoist": "functions", "ignoreOnInitialization": false
+      {
+        "builtinGlobals": true,
+        "hoist": "functions",
+        "ignoreOnInitialization": false
       }
     ],
     "no-prototype-builtins": "off",
@@ -108,23 +113,7 @@
     "no-fallthrough": "off",
     "comma-dangle": "off",
     "no-param-reassign": "off",
-    "@typescript-eslint/naming-convention": [
-      "error",
-      {
-        "selector": [
-          "variable",
-          "property"
-        ],
-        "format": [
-          "camelCase",
-          "PascalCase",
-          "snake_case",
-          "UPPER_CASE"
-        ],
-        "leadingUnderscore": "allow",
-        "trailingUnderscore": "forbid"
-      }
-    ]
+    "@typescript-eslint/naming-convention": "off"
   },
   "overrides": [
     {

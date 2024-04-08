@@ -1,17 +1,8 @@
 import mongoose, { Document, HydratedDocument, InferSchemaType } from "mongoose";
-import { timeLog, timeWarn } from "../log.js";
-import { handleDataBaseError, mapObjectIdsToString } from "./database.js";
-import { DocumentObjectId } from "./databaseTypes.js";
-
-const AlbumPicturesSchema = new mongoose.Schema({
-  fileName: { type: String, required: true },
-  fullPath: { type: String, required: true, unique: true },
-  pictureNumber: { type: Number, required: true },
-  album: { type: mongoose.Schema.Types.ObjectId, ref: "album", required: true }
-});
-
-export type AlbumPicturesItem = InferSchemaType<typeof AlbumPicturesSchema>;
-export type AlbumPicturesItemExport = AlbumPicturesItem & DocumentObjectId;
+import { timeLog, timeWarn } from "../../log.js";
+import { handleDataBaseError, mapObjectIdsToString } from "../database.js";
+import { DocumentObjectId } from "../databaseTypes.js";
+import { AlbumPicturesItem, AlbumPicturesItemExport, AlbumPicturesSchema } from "./types.js";
 
 const AlbumPicturesModel = mongoose.model("albumPicture", AlbumPicturesSchema);
 

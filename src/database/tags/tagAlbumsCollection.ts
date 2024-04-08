@@ -1,18 +1,13 @@
 import mongoose, { InferSchemaType } from "mongoose";
-import { timeLog, timeWarn } from "../log.js";
-import { handleDataBaseError } from "./database.js";
-import { DocumentObjectId } from "./databaseTypes.js";
+import { timeLog, timeWarn } from "../../log.js";
+import { handleDataBaseError } from "../database.js";
+import { DocumentObjectId } from "../databaseTypes.js";
+import { AlbumTagsSchema, TagWithId } from "./types.js";
 
-const AlbumTagsSchema = new mongoose.Schema({
-  tagName: { type: String, required: true },
-  albumName: { type: String, required: true }
-});
-AlbumTagsSchema.index({ tagName: 1, albumName: 1}, { unique: true });
 
-export type AlbumTagsItem = InferSchemaType<typeof AlbumTagsSchema>;
 // export type AlbumTagsItemExport = AlbumTagsItem & DocumentObjectId;
 
-const AlbumTagsModel = mongoose.model("albumTags", AlbumTagsSchema);
+const AlbumTagsModel = mongoose.model("albumTag", AlbumTagsSchema);
 
 export async function insertAlbumTagDependency(albumName: string, tagName: string): Promise<number>
 {
@@ -36,11 +31,11 @@ function mapTagNames(tagObject: { tagName: string }): string
   return tagObject.tagName;
 }
 
-export async function selectAlbumTags(albumName: string): Promise<string[]>
+export async function selectAlbumTags(albumName: string): Promise<TagWithId[]>
 {
   try
   {
-    const resObj = await AlbumTagsModel.find({ albumName }).distinct("tagName");
+    const resObj = await AlbumTagsModel.find({ albumName });
     return resObj;
   }
   catch (localErr: any)
