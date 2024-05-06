@@ -7,7 +7,7 @@ export interface DocumentObjectId
 
 export const countStage: mongoose.PipelineStage = {
   $count: "totalCount",
-}
+};
 
 export interface CountResult {
   totalCount: number;

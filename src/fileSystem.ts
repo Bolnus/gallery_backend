@@ -198,7 +198,7 @@ export async function initAllAlbums(
           newAlbumId = await insertAlbum(albumInfo);
           if (newAlbumId && parentTags.length)
           {
-            await insertNewTag(parentTags[parentTags.length-1]);
+            // await insertNewTag(parentTags[parentTags.length-1]);
             for (const parentTag of parentTags)
             {
               await insertAlbumTagDependency(file, parentTag);
@@ -229,11 +229,31 @@ export async function initAllAlbums(
     }
     return albumSize;
   }
-  catch (error)
+  catch (localErr)
   {
     timeWarn(`Error reading directory: ${directoryPath}`);
-    console.log(error);
+    console.log(localErr);
     return -1;
   }
 }
-  
+
+export function getRenameFilePath(oldPath: string, newFileName: string): string
+{
+  const parentDir = path.dirname(oldPath);
+  return path.join(parentDir, newFileName);
+}
+
+export async function renameFile(oldPath: string, newPath: string): Promise<number>
+{
+  try
+  {
+    await promises.rename(oldPath, newPath);
+    return 0;
+  }
+  catch (localErr)
+  {
+    timeWarn(`File rename error: ${oldPath} -> ${newPath}`);
+    console.log(localErr);
+    return 1;
+  }
+}

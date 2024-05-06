@@ -1,10 +1,13 @@
-import mongoose, { Document, HydratedDocument, InferSchemaType, Mongoose, Schema } from "mongoose";
-// import { AlbumsListItem } from "../databaseTypes.js";
-import { timeLog, timeWarn } from "../../log.js";
+import mongoose from "mongoose";
 import { handleDataBaseError } from "../database.js";
-import { selectAlbumTags } from "../tags/tagAlbumsCollection.js";
-import { AlbumsDataListItem, AlbumsDataWithTotal, AlbumsDataWithTotalObject, AlbumsListItem, AlbumsListItemExport, AlbumsListSchema, AlbumsListWithTotal } from "./types.js";
-import { CountResult, countStage } from "../databaseTypes.js";
+import {
+  AlbumsDataWithTotal,
+  AlbumsDataWithTotalObject,
+  AlbumsListItem,
+  AlbumsListItemExport,
+  AlbumsListSchema,
+  AlbumsListWithTotal,
+} from "./types.js";
 
 const AlbumsListModel = mongoose.model("album", AlbumsListSchema);
 
@@ -226,5 +229,32 @@ export async function deleteAllAlbums(): Promise<number>
   catch (localErr)
   {
     return handleDataBaseError(localErr, "deleteAllAlbums");
+  }
+}
+
+export async function updateAlbumNameById(albumId: string, albumName: string, fullPath: string): Promise<number>
+{
+  try
+  {
+    await AlbumsListModel.findByIdAndUpdate(albumId, { albumName, fullPath, changedDate: (new Date).toISOString() });
+    return 0;
+  }
+  catch (localErr)
+  {
+    return handleDataBaseError(localErr, "updateAlbumNameById");
+  }
+}
+
+export async function selectAlbumPathById(albumId: string): Promise<string>
+{
+  try
+  {
+    const album = await AlbumsListModel.findById(albumId, ["fullPath"]);
+    return album?.fullPath || "";
+  }
+  catch (localErr)
+  {
+    handleDataBaseError(localErr, "selectAlbumPictureById");
+    return "";
   }
 }

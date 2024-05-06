@@ -1,7 +1,5 @@
-import mongoose, { Document, HydratedDocument, InferSchemaType } from "mongoose";
-import { timeLog, timeWarn } from "../../log.js";
+import mongoose from "mongoose";
 import { handleDataBaseError, mapObjectIdsToString } from "../database.js";
-import { DocumentObjectId } from "../databaseTypes.js";
 import { AlbumPicturesItem, AlbumPicturesItemExport, AlbumPicturesSchema } from "./types.js";
 
 const AlbumPicturesModel = mongoose.model("albumPicture", AlbumPicturesSchema);
@@ -66,5 +64,35 @@ export async function selectAlbumPicturesByAlbum(albumId: string, limit = 0): Pr
   {
     handleDataBaseError(localErr, "selectAlbumPictureById");
     return [];
+  }
+}
+
+export async function updateAlbumPicturesLocation(
+  albumId: string,
+  oldAlbumPath: string,
+  newAlbumPath: string
+): Promise<number>
+{
+  try
+  {
+    const renameAggregation: mongoose.PipelineStage[] = [
+      {
+        $set: {
+          fullPath: {
+            $replaceOne: {
+              input: "$fullPath",
+              find: oldAlbumPath,
+              replacement: newAlbumPath,
+            },
+          },
+        },
+      },
+    ];
+    await AlbumPicturesModel.updateMany({ album: albumId }, renameAggregation);
+    return 0;
+  }
+  catch (localErr)
+  {
+    return handleDataBaseError(localErr, "updateAlbumPicturesLocation");
   }
 }

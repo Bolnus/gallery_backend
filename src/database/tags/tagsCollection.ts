@@ -1,8 +1,7 @@
 import mongoose, { InferSchemaType } from "mongoose";
 import { timeLog, timeWarn } from "../../log.js";
 import { handleDataBaseError } from "../database.js";
-import { DocumentObjectId } from "../databaseTypes.js";
-import { TagItemExport, TagsSchema } from "./types.js";
+import { CountedId, TagItem, TagItemExport, TagsSchema } from "./types.js";
 
 const TagsModel = mongoose.model("tag", TagsSchema);
 
@@ -38,11 +37,41 @@ export async function insertNewTag(tagName: string): Promise<number>
   }
 }
 
+function mapTagNameToNewTag(tagName: string): TagItem
+{
+  return {
+    tagName,
+    albumsCount: 1
+  };
+}
+
+export async function insertNewTags(tagNames: string[]): Promise<number>
+{
+  try
+  {
+    const tags: TagItem[] = tagNames.map(mapTagNameToNewTag);
+    await TagsModel.insertMany(tags, { ordered: false });
+    return 0;
+  }
+  catch (localErr: any)
+  {
+    return handleDataBaseError(localErr, "insertNewTags");
+  }
+}
+
 export async function updateAlbumsCount(tagName: string, addCount: number = 1): Promise<number>
 {
   try
   {
-    await TagsModel.findOneAndUpdate({ tagName }, {$inc : { albumsCount : addCount }});
+    const updatedTag = await TagsModel.findOneAndUpdate(
+      { tagName },
+      { $inc: { albumsCount: addCount } },
+      { new: true } // return doc after update
+    );
+    if (!updatedTag?.albumsCount)
+    {
+      await TagsModel.deleteOne({ tagName });
+    }
     return 0;
   }
   catch (localErr: any)
@@ -61,5 +90,32 @@ export async function deleteAllTags(): Promise<number>
   catch (localErr)
   {
     return handleDataBaseError(localErr, "deleteAllTags");
+  }
+}
+
+export async function setAllTags(tagItems: TagItem[]): Promise<number>
+{
+  try
+  {
+    await TagsModel.deleteMany({});
+    await TagsModel.insertMany(tagItems);
+    return 0;
+  }
+  catch (localErr)
+  {
+    return handleDataBaseError(localErr, "setAllTags");
+  }
+}
+
+export async function deleteTagByName(tagName: string): Promise<number>
+{
+  try
+  {
+    await TagsModel.deleteOne({ tagName });
+    return 0;
+  }
+  catch (localErr)
+  {
+    return handleDataBaseError(localErr, "deleteTagByName");
   }
 }

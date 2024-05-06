@@ -16,7 +16,12 @@ import bodyParser from "body-parser";
 import qs from "qs";
 import * as dotenv from "dotenv";
 import { connectToDB } from "./database/database.js";
-import { deleteAllAlbums, selectAlbumsList, selectAlbumsDataList } from "./database/albums/albumsCollection.js";
+import {
+  deleteAllAlbums,
+  selectAlbumsList,
+  selectAlbumsDataList,
+  selectAlbumById,
+} from "./database/albums/albumsCollection.js";
 import { timeLog, timeWarn } from "./log.js";
 import {
   imageToWebpData,
@@ -28,11 +33,13 @@ import {
   fileExists,
   getEnvLocation,
 } from "./fileSystem.js";
-import { deleteAllTags, selectTags } from "./database/tags/tagsCollection.js";
+import { deleteAllTags, deleteTagByName, insertNewTag, selectTags, setAllTags, updateAlbumsCount } from "./database/tags/tagsCollection.js";
 import { deleteAllAlbumPictures, selectAlbumPictureById } from "./database/pictures/albumPicturesCollection.js";
-import { selectAlbumData } from "./database/utils.js";
+import { mapTagNames, selectAlbumData, updateAlbumName, updateAlbumTags } from "./database/utils.js";
 import { PictureSizing } from "./types.js";
-import { getValidString } from "./string.js";
+import { getValidString, isValidStringPhrase, isValidStringTag } from "./string.js";
+import { deleteTagDependencies, getAllTagsFromDeps, selectAlbumTags, setAllAlbumTags } from "./database/tags/tagAlbumsCollection.js";
+import { Http2ServerResponse } from "http2";
 
 console.time("log");
 console.time("WARN");
@@ -81,11 +88,12 @@ function getFullTime()
   );
 }
 
-function handleError(error: any, res: Response) 
+function handleError(error: any, res: Response): void 
 {
   timeWarn(`Error | ${error?.code} | ${error?.status}`);
   console.log(error)
-  return res.sendStatus(400);
+  res.sendStatus(400);
+  return;
 }
 
 app.get("/", function (req, res) 
@@ -300,15 +308,151 @@ app.post(
     try
     {
       await deleteAllAlbums();
-      await deleteAllTags();
+      // await deleteAllTags();
       await deleteAllAlbumPictures();
       const rc = await initAllAlbums(gallerySrcLocation);
+      const countedTags = await getAllTagsFromDeps();
+      await setAllTags(countedTags);
       timeLog("INIT FINISHED");
       if (rc === -1)
       {
         res.sendStatus(400);
         return;
       }
+      res.sendStatus(200);
+      return;
+    }
+    catch (localErr)
+    {
+      timeWarn("Error dropping collections:");
+      console.log(localErr);
+      res.sendStatus(400);
+    }
+  }
+) as RequestHandler);
+
+app.put(
+  `${baseEndPoint}/albums_list/album/headers`,
+  (async function (
+    req: express.Request,
+    res: express.Response
+  ): Promise<void> 
+  {
+    // const endpoint = baseEndPoint + req.params.endpoint;
+    timeLog(`PUT | ${req.path}`);
+
+    try
+    {
+      if (!req.body?.albumName)
+      {
+        res.status(400).json({
+          title: "Empty album name!",
+          message: "Album name can't be empty!",
+        });
+        return;
+      }
+      if (!isValidStringPhrase(req.body?.albumName))
+      {
+        res.status(400).json({
+          title: "Invalid album name!",
+          message: "Invalid characters found in album name!",
+        });
+        return;
+      }
+      if (!isValidStringTag(req.body?.id)) 
+      {
+        res.status(400).json({
+          title: "Invalid album id!",
+          message: "Invalid characters found in album id!",
+        });
+        return;
+      }
+      if (!Array.isArray(req.body?.tags))
+      {
+        res.status(400).json({
+          title: "Data error!",
+          message: "No tags array provided!",
+        });
+        return;
+      }
+      for (const tag of req.body.tags)
+      {
+        if (!isValidStringTag(tag))
+        {
+          res.status(400).json({
+            title: "Invalid tag provided!",
+            message: `Invalid characters found in tag: ${tag}.`,
+          });
+          return;
+        }
+      }
+      const newAlbumName = req.body.albumName as string;
+      const tags = req.body.tags as string[];
+      const album = await selectAlbumById(req.body?.id);
+      let oldAlbumName = "";
+      if (album)
+      {
+        oldAlbumName = album.albumName;
+      }
+      if (!oldAlbumName)
+      {
+        res.status(404).json({
+          title: "Data error!",
+          message: "No album found.",
+        });
+      }
+      if (newAlbumName !== oldAlbumName)
+      {
+        const rcUpdateAlbumName = await updateAlbumName(req.body?.id, newAlbumName);
+        if (rcUpdateAlbumName)
+        {
+          res.status(rcUpdateAlbumName.rc).json({
+            title: rcUpdateAlbumName.message,
+            message: rcUpdateAlbumName.message,
+          });
+          return;
+        }
+      }
+      const rcUpdateTags = await updateAlbumTags(oldAlbumName, newAlbumName, tags);
+      if (rcUpdateTags)
+      {
+        res.status(rcUpdateTags.rc).json({
+          title: rcUpdateTags.message,
+          message: rcUpdateTags.message,
+        });
+        return;
+      }
+      res.sendStatus(200);
+    }
+    catch (error)
+    {
+      handleError(error, res);
+    }
+  }
+) as RequestHandler);
+
+app.delete(
+  `${baseEndPoint}/tags`,
+  (async function (
+    req: express.Request,
+    res: express.Response
+  ): Promise<void> 
+  {
+    timeLog(`DELETE | ${req.path}`);
+
+    try
+    {
+      if (!isValidStringPhrase(req.body?.tag))
+      {
+        res.status(400).json({
+          title: "Invalid tag name!",
+          message: "Invalid characters found in tag.",
+        });
+        return;
+      }
+      const tagName = req.body?.tag as string;
+      await deleteTagByName(tagName);
+      await deleteTagDependencies(tagName);
       res.sendStatus(200);
       return;
     }

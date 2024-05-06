@@ -17,3 +17,9 @@ export const TagsSchema = new mongoose.Schema({
 export type TagItem = InferSchemaType<typeof TagsSchema>;
 export type TagItemExport = TagItem & DocumentObjectId;
 export type TagWithId = Omit<TagItem & DocumentObjectId, "albumsCount">;
+
+export interface CountedId
+{
+  _id: string;
+  albumsCount: number;
+}
