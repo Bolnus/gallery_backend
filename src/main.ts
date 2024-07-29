@@ -32,13 +32,26 @@ import {
   getFullWebpFilePath,
   fileExists,
   getEnvLocation,
+  getFileSize,
 } from "./fileSystem.js";
-import { deleteAllTags, deleteTagByName, insertNewTag, selectTags, setAllTags, updateAlbumsCount } from "./database/tags/tagsCollection.js";
+import {
+  deleteAllTags,
+  deleteTagByName,
+  insertNewTag,
+  selectTags,
+  setAllTags,
+  updateAlbumsCount,
+} from "./database/tags/tagsCollection.js";
 import { deleteAllAlbumPictures, selectAlbumPictureById } from "./database/pictures/albumPicturesCollection.js";
 import { mapTagNames, selectAlbumData, updateAlbumName, updateAlbumTags } from "./database/utils.js";
-import { PictureSizing } from "./types.js";
+import { PictureSizing, SnapFileSize } from "./types.js";
 import { getValidString, isValidStringPhrase, isValidStringTag } from "./string.js";
-import { deleteTagDependencies, getAllTagsFromDeps, selectAlbumTags, setAllAlbumTags } from "./database/tags/tagAlbumsCollection.js";
+import {
+  deleteTagDependencies,
+  getAllTagsFromDeps,
+  selectAlbumTags,
+  setAllAlbumTags,
+} from "./database/tags/tagAlbumsCollection.js";
 import { Http2ServerResponse } from "http2";
 
 console.time("log");
@@ -241,16 +254,26 @@ app.get(`${baseEndPoint}/albums_list/album/picture`, (async function (
       {
         webpFilePath = getFullWebpFilePath(albumPicture.fullPath).replace(gallerySrcLocation, galleryCashLocation);
       }
+      // const webpFileSize = await getFileSize(webpFilePath);
       const webpExists = await fileExists(webpFilePath);
       if (!webpExists)
       {
-        const webpImageData = await imageToWebpData(albumPicture.fullPath, webpFilePath, sizing); // 
+        const webpImageData = await imageToWebpData(albumPicture.fullPath, webpFilePath, sizing);
         if (!webpImageData)
         {
-          res.status(400).send("Imagemin conversion error");
+          res.status(500).send("Imagemin conversion error");
           return;
         }
       }
+      // else if (sizing === PictureSizing.Snap && webpFileSize > SnapFileSize)
+      // {
+      //   const webpImageData = await imageToWebpData(webpFilePath, webpFilePath, PictureSizing.ExtraReduced);
+      //   if (!webpImageData)
+      //   {
+      //     res.status(400).send("Imagemin conversion error");
+      //     return;
+      //   }
+      // }
       
       res.sendFile(webpFilePath);
       // res.set("Content-Type", "image/webp");

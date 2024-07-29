@@ -10,7 +10,7 @@ import { insertAlbum } from "./database/albums/albumsCollection.js";
 import { insertNewTag } from "./database/tags/tagsCollection.js";
 import { insertAlbumTagDependency } from "./database/tags/tagAlbumsCollection.js";
 import { insertAlbumPicture } from "./database/pictures/albumPicturesCollection.js";
-import { PictureSizing } from "./types.js";
+import { PictureSizing, SnapFileSize } from "./types.js";
 import { AlbumsListItem } from "./database/albums/types.js";
 import { AlbumPicturesItem } from "./database/pictures/types.js";
 
@@ -61,24 +61,30 @@ export async function imageToWebpData(
 ): Promise<Buffer>
 {
   let wepbConfig: Options = {};
-  let distanationPath: string;
-  if (sizing && sizing === PictureSizing.Snap)
+  if (sizing === PictureSizing.Snap)
   {
     wepbConfig = {
-      // resize: {
-      //   width: 300,
-      //   height: 300
-      // }
-      size: 16000,
+      resize: {
+        width: 0,
+        height: 400
+      },
+      size: SnapFileSize,
+      method: 1
     };
-    distanationPath = path.dirname(desctinationFilePath);
-    // distanationPath = path.join(dirPath, DIR_WEBP_SNAP);
   }
-  else
+  else if (sizing === PictureSizing.ExtraReduced)
   {
-    distanationPath = path.dirname(desctinationFilePath);
-    // distanationPath = path.join(dirPath, DIR_WEBP_FULL);
+    wepbConfig = {
+      resize: {
+        width: 0,
+        height: 400
+      },
+      size: SnapFileSize,
+      // quality: 1,
+      method: 1
+    };
   }
+  const distanationPath = path.dirname(desctinationFilePath);
 
   const resultsArray = await imagemin([srcFilePath.replace(/\\/g, "/")], {
     destination: distanationPath.replace(/\\/g, "/"),
@@ -125,6 +131,19 @@ export async function fileExists(fullPath: string): Promise<boolean>
   catch (localErr)
   {
     return false;
+  }
+}
+
+export async function getFileSize(fullPath: string): Promise<number>
+{
+  try
+  {
+    const fileStats = await promises.stat(fullPath);
+    return fileStats.size;
+  }
+  catch (localErr)
+  {
+    return 0;
   }
 }
 

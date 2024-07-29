@@ -14,7 +14,7 @@ Software required:
 ## Installation
 
 1. Run `npm install` in the root project directory. 
-2. Copy `.env.template` contents to a new `.env` file. In the new file you will most likely want to setup the following:
+2. Copy `.env.template` file contents to a new `.env` file. In the new file you will most likely want to setup the following:
 - GALLERY_SRC_LOCATION is your directory with albums which will be used as source.
 - GALLERY_CASH_LOCATION is the location where cash images will be stored once they have been compressed.
 
