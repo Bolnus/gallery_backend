@@ -12,3 +12,4 @@ export interface HttpError
 }
 
 export const SnapFileSize = 16000;
+export const ImagesClientCacheTime = 60*60*24;

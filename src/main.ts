@@ -44,7 +44,7 @@ import {
 } from "./database/tags/tagsCollection.js";
 import { deleteAllAlbumPictures, selectAlbumPictureById } from "./database/pictures/albumPicturesCollection.js";
 import { mapTagNames, selectAlbumData, updateAlbumName, updateAlbumTags } from "./database/utils.js";
-import { PictureSizing, SnapFileSize } from "./types.js";
+import { ImagesClientCacheTime, PictureSizing, SnapFileSize } from "./types.js";
 import { getValidString, isValidStringPhrase, isValidStringTag } from "./string.js";
 import {
   deleteTagDependencies,
@@ -275,6 +275,7 @@ app.get(`${baseEndPoint}/albums_list/album/picture`, (async function (
       //   }
       // }
       
+      res.set("Cache-Control", `private, max-age=${ImagesClientCacheTime}`);
       res.sendFile(webpFilePath);
       // res.set("Content-Type", "image/webp");
       // res.set("Content-Disposition", `attachment; filename=${encodeURI(fileNameToWebp(albumPicture.fileName))}`);
