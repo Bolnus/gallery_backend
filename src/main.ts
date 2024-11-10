@@ -43,7 +43,7 @@ import {
   updateAlbumsCount,
 } from "./database/tags/tagsCollection.js";
 import { deleteAllAlbumPictures, selectAlbumPictureById } from "./database/pictures/albumPicturesCollection.js";
-import { mapTagNames, selectAlbumData, updateAlbumName, updateAlbumTags } from "./database/utils.js";
+import { mapTagNames, selectAlbumData, selectAlbumHeaders, updateAlbumName, updateAlbumTags } from "./database/utils.js";
 import { ImagesClientCacheTime, PictureSizing, SnapFileSize } from "./types.js";
 import { getValidString, isValidStringPhrase, isValidStringTag } from "./string.js";
 import {
@@ -149,7 +149,7 @@ app.get(`${baseEndPoint}/albums_list`, (async function (
   {
     pageNumber = 1;
   }
-  if (Number.isNaN(pageSize) || pageSize < 10 || pageSize > 100)
+  if (Number.isNaN(pageSize) || pageSize < 10 || pageSize > 50)
   {
     pageSize = 30;
   }
@@ -188,7 +188,7 @@ app.get(`${baseEndPoint}/albums_list/album`, (async function (
     const album = await selectAlbumData(albumId);
     if (!album)
     {
-      res.sendStatus(400);
+      res.sendStatus(404);
       return;
     }
     res.json(album);
@@ -284,7 +284,7 @@ app.get(`${baseEndPoint}/albums_list/album/picture`, (async function (
     else
     {
       timeWarn(`No picture found for id=${pictureId}`);
-      res.sendStatus(400);
+      res.sendStatus(404);
     }
   }
   catch (error)
@@ -447,6 +447,45 @@ app.put(
         return;
       }
       res.sendStatus(200);
+    }
+    catch (error)
+    {
+      handleError(error, res);
+    }
+  }
+) as RequestHandler);
+
+app.get(
+  `${baseEndPoint}/albums_list/album/headers`,
+  (async function (
+    req: express.Request,
+    res: express.Response
+  ): Promise<void> 
+  {
+    timeLog(`GET | ${req.path}`);
+
+    try
+    {
+      const albumId = req.query?.id;
+      if (!albumId || typeof albumId !== "string")
+      {
+        timeWarn("No album ID!");
+        res.sendStatus(400);
+        return;
+      }
+      const album = await selectAlbumHeaders(albumId);
+      if (!album)
+      {
+        res.sendStatus(404);
+        return;
+      }
+      res.json({
+        _id: album._id,
+        albumName: album.albumName,
+        albumSize: album.albumSize,
+        changedDate: album.changedDate,
+        tags: album.tags
+      });
     }
     catch (error)
     {

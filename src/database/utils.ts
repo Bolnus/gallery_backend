@@ -60,6 +60,25 @@ export async function selectAlbumData(albumId: string): Promise<AlbumsDataListIt
   return exportAlbumData;
 }
 
+export async function selectAlbumHeaders(albumId: string): Promise<AlbumsDataListItem | null> 
+{
+  const album = await selectAlbumById(albumId);
+  if (!album)
+  {
+    return null;
+  }
+  const albumTags = await selectAlbumTags(album.albumName);
+  const exportAlbumData: AlbumsDataListItem = {
+    _id: album._id,
+    albumName: album.albumName,
+    albumSize: album.albumSize,
+    changedDate: album.changedDate,
+    tags: albumTags,
+    pictureIds: []
+  };
+  return exportAlbumData;
+}
+
 export function mapTagNames(tagObject: { tagName: string }): string
 {
   return tagObject.tagName;
