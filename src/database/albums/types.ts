@@ -7,15 +7,12 @@ export const AlbumsListSchema = new mongoose.Schema({
   albumName: { type: String, required: true, unique: true },
   fullPath: { type: String, required: true, unique: true },
   albumSize: { type: Number, required: true },
-  changedDate: { type: String, required: true },
+  changedDate: { type: String, required: true }
 });
 AlbumsListSchema.index({ albumName: "text" });
 
-export type AlbumsListItem = InferSchemaType<typeof AlbumsListSchema>;
-export type AlbumsListItemExport = Omit<
-  AlbumsListItem & DocumentObjectId,
-  "fullPath"
->;
+export type AlbumsListItem = InferSchemaType<typeof AlbumsListSchema> & Partial<DocumentObjectId>;
+export type AlbumsListItemExport = Omit<AlbumsListItem, "fullPath">;
 
 export interface AlbumsListWithTotal {
   albumsList: AlbumsListItemExport[];

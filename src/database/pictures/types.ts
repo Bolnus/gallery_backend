@@ -6,8 +6,8 @@ export const AlbumPicturesSchema = new mongoose.Schema({
   fileFormat: { type: String, required: true },
   fullPath: { type: String, required: true, unique: true },
   pictureNumber: { type: Number, required: true },
-  album: { type: mongoose.Schema.Types.ObjectId, ref: "album", required: true },
+  album: { type: mongoose.Schema.Types.ObjectId, ref: "album", required: true }
 });
-  
+
 export type AlbumPicturesItem = InferSchemaType<typeof AlbumPicturesSchema>;
 export type AlbumPicturesItemExport = AlbumPicturesItem & DocumentObjectId;

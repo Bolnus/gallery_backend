@@ -6,16 +6,12 @@ import {
   AlbumsListItem,
   AlbumsListItemExport,
   AlbumsListSchema,
-  AlbumsListWithTotal,
+  AlbumsListWithTotal
 } from "./types.js";
 
 const AlbumsListModel = mongoose.model("album", AlbumsListSchema);
 
-export async function selectAlbumsList(
-  start: number = 0,
-  end: number = 50
-): Promise<AlbumsListWithTotal>
-{
+export async function selectAlbumsList(start: number = 0, end: number = 50): Promise<AlbumsListWithTotal> {
   // if (start >= end)
   // {
   //   timeWarn(`start ${start} >= end ${end}`);
@@ -24,23 +20,18 @@ export async function selectAlbumsList(
   //     totalCount: 0
   //   };
   // }
-  try
-  {
-    const albumListItems = await AlbumsListModel.find({}, [
-      "_id",
-      "albumName",
-      "albumSize",
-      "changedDate"
-    ]).sort({changedDate: -1}).skip(start).limit(end); // 
+  try {
+    const albumListItems = await AlbumsListModel.find({}, ["_id", "albumName", "albumSize", "changedDate"])
+      .sort({ changedDate: -1 })
+      .skip(start)
+      .limit(end); //
     // timeLog(`${end} - ${start} = ${albumListItems.length}`)
     const totalCount = await AlbumsListModel.countDocuments();
     return {
       albumsList: albumListItems,
       totalCount
     };
-  }
-  catch (localErr: any)
-  {
+  } catch (localErr: unknown) {
     handleDataBaseError(localErr, "selectAlbumsList");
     return {
       albumsList: [],
@@ -54,25 +45,20 @@ export async function selectAlbumsDataList(
   searchName: string,
   albumsListStart: number,
   albumsListEnd: number
-): Promise<AlbumsDataWithTotal> 
-{
-  try
-  {
+): Promise<AlbumsDataWithTotal> {
+  try {
     const aggregationQuerySearchName: mongoose.PipelineStage[] = [];
-    if (searchName)
-    {
+    if (searchName) {
       const searchTerms = searchName.split(" ");
-      for (const word of searchTerms)
-      {
-        if (word)
-        {
+      for (const word of searchTerms) {
+        if (word) {
           aggregationQuerySearchName.push({
             $match: {
               albumName: {
                 $regex: word,
-                $options: "i",
-              },
-            },
+                $options: "i"
+              }
+            }
           });
         }
       }
@@ -84,20 +70,18 @@ export async function selectAlbumsDataList(
           let: { client_id: "$albumName" },
           pipeline: [
             { $match: { $expr: { $eq: ["$albumName", "$$client_id"] } } },
-            { $project: { _id: 1, tagName: 1 } },
+            { $project: { _id: 1, tagName: 1 } }
           ],
           as: "tags"
-        },
+        }
       }
     ];
-    if (tagsList.length)
-    {
-      for (const tagName of tagsList)
-      {
+    if (tagsList.length) {
+      for (const tagName of tagsList) {
         aggregationQueryTags.push({
           $match: {
             "tags.tagName": {
-              $in: [tagName],
+              $in: [tagName]
             }
           }
         });
@@ -109,44 +93,44 @@ export async function selectAlbumsDataList(
         $facet: {
           totalCount: [
             {
-              $count: "count",
-            },
+              $count: "count"
+            }
           ],
           albumsList: [
             {
-              $sort: { changedDate: -1 },
+              $sort: { changedDate: -1 }
             },
             {
-              $skip: albumsListStart,
+              $skip: albumsListStart
             },
             {
-              $limit: albumsListEnd,
+              $limit: albumsListEnd
             },
             {
               $lookup: {
                 from: "albumpictures",
                 let: {
-                  client_id: "$_id",
+                  client_id: "$_id"
                 },
                 pipeline: [
                   {
                     $match: {
                       $expr: {
-                        $eq: ["$album", "$$client_id"],
-                      },
-                    },
+                        $eq: ["$album", "$$client_id"]
+                      }
+                    }
                   },
                   {
-                    $limit: 6,
-                  },
+                    $limit: 6
+                  }
                 ],
-                as: "pictureObjects",
-              },
+                as: "pictureObjects"
+              }
             },
             {
               $addFields: {
-                pictureIds: "$pictureObjects._id",
-              },
+                pictureIds: "$pictureObjects._id"
+              }
             },
             {
               $project: {
@@ -155,17 +139,17 @@ export async function selectAlbumsDataList(
                 albumSize: 1,
                 changedDate: 1,
                 tags: 1,
-                pictureIds: 1,
-              },
-            },
-          ],
-        },
-      },
+                pictureIds: 1
+              }
+            }
+          ]
+        }
+      }
     ];
     const albumsListWithTotal = await AlbumsListModel.aggregate<AlbumsDataWithTotalObject>([
       ...aggregationQuerySearchName,
       ...aggregationQueryTags,
-      ...aggregationQueryMain,
+      ...aggregationQueryMain
     ]);
     // {
     //   $lookup: {
@@ -180,9 +164,7 @@ export async function selectAlbumsDataList(
       albumsList: albumsListWithTotal?.[0]?.albumsList,
       totalCount: albumsListWithTotal?.[0]?.totalCount?.[0]?.count || 0
     };
-  }
-  catch (localErr: any)
-  {
+  } catch (localErr: unknown) {
     handleDataBaseError(localErr, "selectAlbumsDataList");
     return {
       albumsList: [],
@@ -191,70 +173,78 @@ export async function selectAlbumsDataList(
   }
 }
 
-export async function selectAlbumById(albumId: string): Promise<AlbumsListItemExport | null>
-{
-  try
-  {
+export async function selectAlbumById(albumId: string): Promise<AlbumsListItem | null> {
+  try {
     const album = await AlbumsListModel.findById(albumId);
     return album;
-  }
-  catch (localErr)
-  {
-    handleDataBaseError(localErr, "selectAlbumPictureById");
+  } catch (localErr) {
+    handleDataBaseError(localErr, "selectAlbumById");
     return null;
   }
 }
 
-export async function insertAlbum(albumListItem: AlbumsListItem): Promise<mongoose.Types.ObjectId | null>
-{
-  try
-  {
+export async function insertAlbum(albumListItem: AlbumsListItem): Promise<mongoose.Types.ObjectId | null> {
+  try {
     const createdAlbum = await AlbumsListModel.create(albumListItem);
     return createdAlbum?._id;
-  }
-  catch (localErr)
-  {
+  } catch (localErr) {
     handleDataBaseError(localErr, "insertAlbum");
     return null;
   }
 }
 
-export async function deleteAllAlbums(): Promise<number>
-{
-  try
-  {
+export async function deleteAllAlbums(): Promise<number> {
+  try {
     await AlbumsListModel.deleteMany({});
     return 0;
-  }
-  catch (localErr)
-  {
+  } catch (localErr) {
     return handleDataBaseError(localErr, "deleteAllAlbums");
   }
 }
 
-export async function updateAlbumNameById(albumId: string, albumName: string, fullPath: string): Promise<number>
-{
-  try
-  {
-    await AlbumsListModel.findByIdAndUpdate(albumId, { albumName, fullPath, changedDate: (new Date).toISOString() });
+export async function updateAlbumNameById(albumId: string, albumName: string, fullPath: string): Promise<number> {
+  try {
+    await AlbumsListModel.findByIdAndUpdate(albumId, { albumName, fullPath, changedDate: new Date().toISOString() });
     return 0;
-  }
-  catch (localErr)
-  {
+  } catch (localErr) {
     return handleDataBaseError(localErr, "updateAlbumNameById");
   }
 }
 
-export async function selectAlbumPathById(albumId: string): Promise<string>
-{
-  try
-  {
+export async function updateAlbumSizeById(albumId: string, albumSize: number): Promise<number> {
+  try {
+    await AlbumsListModel.findByIdAndUpdate(albumId, { albumSize, changedDate: new Date().toISOString() });
+    return 0;
+  } catch (localErr) {
+    return handleDataBaseError(localErr, "updateAlbumNameById");
+  }
+}
+
+export async function selectAlbumPathById(albumId: string): Promise<string> {
+  try {
     const album = await AlbumsListModel.findById(albumId, ["fullPath"]);
     return album?.fullPath || "";
-  }
-  catch (localErr)
-  {
-    handleDataBaseError(localErr, "selectAlbumPictureById");
+  } catch (localErr) {
+    handleDataBaseError(localErr, "selectAlbumPathById");
     return "";
+  }
+}
+
+export async function selectAlbumByName(albumName: string): Promise<AlbumsListItemExport | null> {
+  try {
+    const album = await AlbumsListModel.findOne({ albumName });
+    return album;
+  } catch (localErr) {
+    handleDataBaseError(localErr, "selectAlbumByName");
+    return null;
+  }
+}
+
+export async function deleteAlbumById(albumId: string): Promise<number> {
+  try {
+    await AlbumsListModel.deleteOne({ _id: albumId });
+    return 0;
+  } catch (localErr) {
+    return handleDataBaseError(localErr, "deleteAlbumById");
   }
 }

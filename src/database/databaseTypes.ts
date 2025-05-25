@@ -1,12 +1,11 @@
 import mongoose from "mongoose";
 
-export interface DocumentObjectId 
-{
+export interface DocumentObjectId {
   _id: mongoose.Types.ObjectId;
-};
+}
 
 export const countStage: mongoose.PipelineStage = {
-  $count: "totalCount",
+  $count: "totalCount"
 };
 
 export interface CountResult {
