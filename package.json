@@ -8,7 +8,7 @@
     "start": "npx tsx watch src/main.ts",
     "dev": "npx tsx watch src/main.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "rimraf ./build && npx tsc",
+    "build": "rimraf ./public && npx tsc",
     "vercel-build": "npm run build"
   },
   "keywords": [],
