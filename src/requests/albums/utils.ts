@@ -1,6 +1,10 @@
 import express from "express";
 import { isValidStringPhrase, isValidStringTag } from "../../string.js";
 import { AlbumHeadersBody, GetAlbumQuery } from "./types.js";
+import { HttpError } from "../../types.js";
+import { selectAlbumPathById, updateAlbumById } from "../../database/albums/albumsCollection.js";
+import { getRenameFilePath, renameFile } from "../../fileSystem.js";
+import { updateAlbumPicturesLocation } from "../../database/pictures/albumPicturesCollection.js";
 
 export function isValidAlbumHeadersBody(
   body: unknown,
@@ -45,6 +49,13 @@ export function isValidAlbumHeadersBody(
       return false;
     }
   }
+  if (reqBody?.description !== undefined && typeof reqBody?.description !== "string") {
+    res.status(400).json({
+      title: "Data error!",
+      message: "Wrong description type!"
+    });
+    return false;
+  }
   return true;
 }
 
@@ -58,4 +69,42 @@ export function isValidAlbumIdObject(body: unknown, res: express.Response): body
     return false;
   }
   return true;
+}
+
+export async function updateAlbumName(
+  albumId: string,
+  albumName: string,
+  description?: string
+): Promise<HttpError | null> {
+  const oldAlbumPath = await selectAlbumPathById(albumId);
+  const newAlbumPath = getRenameFilePath(oldAlbumPath, albumName);
+  if (!oldAlbumPath) {
+    return {
+      rc: 404,
+      message: "No album found for id!"
+    };
+  }
+  const rcAlbumUpdate = await updateAlbumById(albumId, albumName, newAlbumPath, description);
+  if (rcAlbumUpdate) {
+    return {
+      rc: 400,
+      message: "Album name is not unique!"
+    };
+  }
+  const rcFolderRename = await renameFile(oldAlbumPath, newAlbumPath);
+  if (rcFolderRename) {
+    return {
+      rc: 500,
+      message: "Internal rename error! Fix may be required!"
+    };
+  }
+  const rcPicturesUpdate = await updateAlbumPicturesLocation(albumId, oldAlbumPath, newAlbumPath);
+  if (rcPicturesUpdate) {
+    return {
+      rc: 500,
+      message: "Album pictures update error!"
+    };
+  }
+
+  return null;
 }

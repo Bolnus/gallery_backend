@@ -13,4 +13,5 @@ export interface AlbumHeadersBody {
   albumName: string;
   id: string;
   tags: string[];
+  description: string;
 }

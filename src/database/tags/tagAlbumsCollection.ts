@@ -1,4 +1,4 @@
-import mongoose, { InferSchemaType } from "mongoose";
+import mongoose, { Error as MongooseError } from "mongoose";
 import { timeLog, timeWarn } from "../../log.js";
 import { handleDataBaseError } from "../database.js";
 import { DocumentObjectId } from "../databaseTypes.js";
@@ -13,7 +13,7 @@ export async function insertAlbumTagDependency(albumName: string, tagName: strin
     await AlbumTagsModel.create({ tagName, albumName });
     return 0;
   } catch (localErr) {
-    if (localErr?.code === 11000) {
+    if (localErr instanceof mongoose.mongo.MongoError && localErr?.code === 11000) {
       return 0;
     }
     return handleDataBaseError(localErr, "insertAlbumTagDependency");

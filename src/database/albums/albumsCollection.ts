@@ -202,12 +202,22 @@ export async function deleteAllAlbums(): Promise<number> {
   }
 }
 
-export async function updateAlbumNameById(albumId: string, albumName: string, fullPath: string): Promise<number> {
+export async function updateAlbumById(
+  albumId: string,
+  albumName: string,
+  fullPath: string,
+  description?: string
+): Promise<number> {
   try {
-    await AlbumsListModel.findByIdAndUpdate(albumId, { albumName, fullPath, changedDate: new Date().toISOString() });
+    await AlbumsListModel.findByIdAndUpdate(albumId, {
+      albumName,
+      fullPath,
+      changedDate: new Date().toISOString(),
+      description
+    });
     return 0;
   } catch (localErr) {
-    return handleDataBaseError(localErr, "updateAlbumNameById");
+    return handleDataBaseError(localErr, "updateAlbumById");
   }
 }
 
@@ -216,7 +226,7 @@ export async function updateAlbumSizeById(albumId: string, albumSize: number): P
     await AlbumsListModel.findByIdAndUpdate(albumId, { albumSize, changedDate: new Date().toISOString() });
     return 0;
   } catch (localErr) {
-    return handleDataBaseError(localErr, "updateAlbumNameById");
+    return handleDataBaseError(localErr, "updateAlbumById");
   }
 }
 
@@ -246,5 +256,17 @@ export async function deleteAlbumById(albumId: string): Promise<number> {
     return 0;
   } catch (localErr) {
     return handleDataBaseError(localErr, "deleteAlbumById");
+  }
+}
+
+export async function updateAlbumDescriptionById(albumId: string, description?: string): Promise<number> {
+  try {
+    await AlbumsListModel.findByIdAndUpdate(albumId, {
+      changedDate: new Date().toISOString(),
+      description
+    });
+    return 0;
+  } catch (localErr) {
+    return handleDataBaseError(localErr, "updateAlbumById");
   }
 }

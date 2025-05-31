@@ -45,16 +45,14 @@ const baseEndPoint = getEnvBaseEndpoint();
 const app = express();
 app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 app.use(bodyParser.json({ limit: "50mb" }));
-// app.use(
-//   cors({
-//     origin: "*",
-//   })
-// );
 
-// let axiosClient = axios.create({
-//   baseURL: backendAddr,
-// });
-const upload = multer({ dest: getEnvRootCashLocation() });
+const upload = multer({
+  dest: getEnvRootCashLocation(),
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+    files: 10
+  }
+});
 
 app.get("/", getStatus);
 app.post(`${baseEndPoint}/init`, initAlbumsRequest as RequestHandler);
@@ -85,3 +83,5 @@ if (getEnvIsHTTPS()) {
   timeLog(`HTTP Listening to port: ${portNumber}`);
   app.listen(portNumber);
 }
+
+export default app;

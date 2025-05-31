@@ -3,39 +3,17 @@ import qs from "qs";
 import { timeLog, timeWarn } from "../../log.js";
 import { handleError } from "../commonRequests.js";
 import {
-  arrangeImageFiles,
   fileExists,
   getFullWebpFilePath,
   getSnapWebpFilePath,
-  imageToWebpData,
-  saveNewImageFiles
+  imageToWebpData
 } from "../../fileSystem.js";
 import { AlbumPicturesItemExport } from "../../database/pictures/types.js";
 import { ImagesClientCacheTime, PictureSizing } from "../../types.js";
 import { insertManyAlbumPictures, selectAlbumPictureById } from "../../database/pictures/albumPicturesCollection.js";
 import { getEnvGalleryCashLocation, getEnvGallerySrcLocation, getEnvRootCashLocation } from "../../env.js";
 import { selectAlbumById, updateAlbumSizeById } from "../../database/albums/albumsCollection.js";
-import { parsePostPicturesBody, parsePutPicturesBody } from "./utils.js";
-
-// const storage = multer.diskStorage({
-//   destination: (req, file, cb) => {
-//     const albumName = req.params.albumName;
-//     const uploadPath = path.join(__dirname, "uploads", albumName);
-
-//     // Create the directory if it doesn't exist
-//     if (!fs.existsSync(uploadPath)) {
-//       fs.mkdirSync(uploadPath, { recursive: true });
-//     }
-
-//     cb(null, uploadPath);
-//   },
-//   filename: (req, file, cb) => {
-//     // Generate a unique filename
-//     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-//     const ext = path.extname(file.originalname);
-//     cb(null, file.fieldname + "-" + uniqueSuffix + ext);
-//   }
-// });
+import { arrangeImageFiles, parsePostPicturesBody, parsePutPicturesBody, saveNewImageFiles } from "./utils.js";
 
 export async function getPictureRequest(req: express.Request, res: express.Response): Promise<void> {
   timeLog(`GET | ${req.path}${qs.stringify(req.query, { format: "RFC3986" })}`);
@@ -140,10 +118,6 @@ export async function postPicturesRequest(
       return;
     }
     const savedIds = await insertManyAlbumPictures(Array.from(savedPictureItems.values()));
-    const rc = await updateAlbumSizeById(body.albumId, album.albumSize + savedIds.length);
-    if (rc) {
-      timeWarn("Error updating album size");
-    }
     const resultIdsMap = new Map<string, string>();
     for (const [fileName, albumPic] of Array.from(savedPictureItems)) {
       if (savedIds.find((savedId) => albumPic._id === savedId)) {

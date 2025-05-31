@@ -1,20 +1,22 @@
 import express from "express";
 import qs from "qs";
 import { timeLog, timeWarn } from "../../log.js";
-import { getValidString, isValidStringPhrase, isValidStringTag } from "../../string.js";
-import { deleteAlbumById, selectAlbumById, selectAlbumByName, selectAlbumPathById, selectAlbumsDataList } from "../../database/albums/albumsCollection.js";
-import { handleError } from "../commonRequests.js";
+import { getValidString } from "../../string.js";
 import {
-  insertAlbumWithTags,
-  selectAlbumData,
-  selectAlbumHeaders,
-  updateAlbumName,
-  updateAlbumTags
-} from "../../database/utils.js";
+  deleteAlbumById,
+  selectAlbumById,
+  selectAlbumByName,
+  selectAlbumPathById,
+  selectAlbumsDataList,
+  updateAlbumDescriptionById
+} from "../../database/albums/albumsCollection.js";
+import { handleError } from "../commonRequests.js";
+import { insertAlbumWithTags, selectAlbumData, selectAlbumHeaders, updateAlbumTags } from "../../database/utils.js";
 import { generateNewAlbumPath, removePath } from "../../fileSystem.js";
 import { AlbumsListItem } from "../../database/albums/types.js";
+import { deletePicturesByAlbumId } from "../../database/pictures/albumPicturesCollection.js";
 import { GetAlbumQuery, GetAlbumsListQuery } from "./types.js";
-import { isValidAlbumHeadersBody, isValidAlbumIdObject } from "./utils.js";
+import { isValidAlbumHeadersBody, isValidAlbumIdObject, updateAlbumName } from "./utils.js";
 
 export async function getAlbumsListRequest(
   req: express.Request<unknown, unknown, unknown, GetAlbumsListQuery>,
@@ -96,13 +98,21 @@ export async function putAlbumHeadersRequest(
       });
     }
     if (reqBody.albumName !== oldAlbumName) {
-      const rcUpdateAlbumName = await updateAlbumName(reqBody.id, reqBody.albumName);
+      const rcUpdateAlbumName = await updateAlbumName(reqBody.id, reqBody.albumName, reqBody.description);
       if (rcUpdateAlbumName) {
         res.status(rcUpdateAlbumName.rc).json({
           title: rcUpdateAlbumName.message,
           message: rcUpdateAlbumName.message
         });
         return;
+      }
+    } else if (reqBody.description !== album?.description) {
+      const rcUpdateAlbumName = await updateAlbumDescriptionById(reqBody.id, reqBody.description);
+      if (rcUpdateAlbumName) {
+        res.status(400).json({
+          title: "Could not update description",
+          message: "Could not update description"
+        });
       }
     }
     const rcUpdateTags = await updateAlbumTags(oldAlbumName, reqBody.albumName, reqBody.tags);
@@ -139,6 +149,7 @@ export async function getAlbumHeadersRequest(req: express.Request, res: express.
       albumName: album.albumName,
       albumSize: album.albumSize,
       changedDate: album.changedDate,
+      description: album.description,
       tags: album.tags
     });
   } catch (error) {
@@ -177,6 +188,7 @@ export async function postAlbumRequest(
       albumName: reqBody.albumName,
       fullPath,
       changedDate: (new Date()).toISOString(),
+      description: reqBody.description,
       albumSize: 0
     };
     const objectID = await insertAlbumWithTags(albumInfo, reqBody.tags);
@@ -206,7 +218,7 @@ export async function deleteAlbumRequest(
       });
       return;
     }
-    const rmRC = await removePath(albumPath);
+    const rmRC = await removePath(albumPath, { recursive: true, force: true });
     if (rmRC) {
       res.status(400).json({
         title: "Files delete error",
@@ -222,6 +234,7 @@ export async function deleteAlbumRequest(
       });
       return;
     }
+    await deletePicturesByAlbumId(reqData.id);
 
     res.sendStatus(200);
   } catch (error) {

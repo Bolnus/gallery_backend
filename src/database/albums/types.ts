@@ -3,11 +3,11 @@ import { DocumentObjectId } from "../databaseTypes.js";
 import { TagWithId } from "../tags/types.js";
 
 export const AlbumsListSchema = new mongoose.Schema({
-  // _id: { type: Schema.Types.ObjectId, unique: true }, // required: true,
   albumName: { type: String, required: true, unique: true },
   fullPath: { type: String, required: true, unique: true },
   albumSize: { type: Number, required: true },
-  changedDate: { type: String, required: true }
+  changedDate: { type: String, required: true },
+  description: { type: String }
 });
 AlbumsListSchema.index({ albumName: "text" });
 

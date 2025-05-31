@@ -9,7 +9,7 @@ export async function selectTags(): Promise<TagItemExport[]> {
   try {
     const resObj = await TagsModel.find({ albumsCount: { $gt: 0 } }, null).sort({ albumsCount: -1 });
     return resObj;
-  } catch (localErr: any) {
+  } catch (localErr) {
     handleDataBaseError(localErr, "selectTags");
     return [];
   }
@@ -19,8 +19,8 @@ export async function insertNewTag(tagName: string): Promise<number> {
   try {
     await TagsModel.create({ tagName, albumsCount: 1 });
     return 0;
-  } catch (localErr: any) {
-    if (localErr?.code === 11000) {
+  } catch (localErr) {
+    if (localErr instanceof mongoose.mongo.MongoError && localErr?.code === 11000) {
       const rc = await updateAlbumsCount(tagName);
       return rc;
     }
@@ -40,7 +40,7 @@ export async function insertNewTags(tagNames: string[]): Promise<number> {
     const tags: TagItem[] = tagNames.map(mapTagNameToNewTag);
     await TagsModel.insertMany(tags, { ordered: false });
     return 0;
-  } catch (localErr: any) {
+  } catch (localErr) {
     return handleDataBaseError(localErr, "insertNewTags");
   }
 }
@@ -56,7 +56,7 @@ export async function updateAlbumsCount(tagName: string, addCount: number = 1): 
       await TagsModel.deleteOne({ tagName });
     }
     return 0;
-  } catch (localErr: any) {
+  } catch (localErr) {
     return handleDataBaseError(localErr, "updateAlbumsCount");
   }
 }

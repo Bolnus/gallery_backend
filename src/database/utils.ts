@@ -1,9 +1,8 @@
 import mongoose from "mongoose";
-import { getRenameFilePath, renameFile } from "../fileSystem.js";
 import { HttpError } from "../types.js";
 import { timeWarn } from "../log.js";
-import { selectPictureIdsByAlbumId, updateAlbumPicturesLocation } from "./pictures/albumPicturesCollection.js";
-import { insertAlbum, selectAlbumById, selectAlbumPathById, updateAlbumNameById } from "./albums/albumsCollection.js";
+import { selectPictureIdsByAlbumId } from "./pictures/albumPicturesCollection.js";
+import { insertAlbum, selectAlbumById } from "./albums/albumsCollection.js";
 import {
   deleteAllTagsForAlbum,
   insertAlbumTagDependency,
@@ -12,30 +11,6 @@ import {
 } from "./tags/tagAlbumsCollection.js";
 import { AlbumsDataListItem, AlbumsListItem } from "./albums/types.js";
 import { insertNewTag, updateAlbumsCount } from "./tags/tagsCollection.js";
-
-// export async function selectAlbumsDataListLegacy(
-//   albumsListStart: number = 0,
-//   albumsListEnd: number = 50
-// ): Promise<AlbumsDataWithTotal> {
-//   const albumsListWithTotal = await selectAlbumsList(albumsListStart, albumsListEnd);
-//   const exportAlbumListItems: AlbumsDataListItem[] = [];
-//   for (const albumListItem of albumsListWithTotal.albumsList) {
-//     const albumTags = await selectAlbumTags(albumListItem.albumName);
-//     const albumPictures = await selectPicturesByAlbumId(albumListItem._id.toString(), 6);
-//     exportAlbumListItems.push({
-//       _id: albumListItem._id,
-//       albumName: albumListItem.albumName,
-//       albumSize: albumListItem.albumSize,
-//       changedDate: albumListItem.changedDate,
-//       tags: albumTags,
-//       pictureIds: albumPictures
-//     });
-//   }
-//   return {
-//     albumsList: exportAlbumListItems,
-//     totalCount: albumsListWithTotal.totalCount
-//   };
-// }
 
 export async function selectAlbumData(albumId: string): Promise<AlbumsDataListItem | null> {
   const album = await selectAlbumById(albumId);
@@ -49,6 +24,7 @@ export async function selectAlbumData(albumId: string): Promise<AlbumsDataListIt
     albumName: album.albumName,
     albumSize: album.albumSize,
     changedDate: album.changedDate,
+    description: album.description,
     tags: albumTags,
     pictureIds: albumPictures
   };
@@ -67,6 +43,7 @@ export async function selectAlbumHeaders(albumId: string): Promise<AlbumsDataLis
     albumSize: album.albumSize,
     changedDate: album.changedDate,
     tags: albumTags,
+    description: album.description,
     pictureIds: []
   };
   return exportAlbumData;
@@ -74,40 +51,6 @@ export async function selectAlbumHeaders(albumId: string): Promise<AlbumsDataLis
 
 export function mapTagNames(tagObject: { tagName: string }): string {
   return tagObject.tagName;
-}
-
-export async function updateAlbumName(albumId: string, albumName: string): Promise<HttpError | null> {
-  const oldAlbumPath = await selectAlbumPathById(albumId);
-  const newAlbumPath = getRenameFilePath(oldAlbumPath, albumName);
-  if (!oldAlbumPath) {
-    return {
-      rc: 404,
-      message: "No album found for id!"
-    };
-  }
-  const rcAlbumUpdate = await updateAlbumNameById(albumId, albumName, newAlbumPath);
-  if (rcAlbumUpdate) {
-    return {
-      rc: 400,
-      message: "Album name is not unique!"
-    };
-  }
-  const rcFolderRename = await renameFile(oldAlbumPath, newAlbumPath);
-  if (rcFolderRename) {
-    return {
-      rc: 500,
-      message: "Internal rename error! Fix may be required!"
-    };
-  }
-  const rcPicturesUpdate = await updateAlbumPicturesLocation(albumId, oldAlbumPath, newAlbumPath);
-  if (rcPicturesUpdate) {
-    return {
-      rc: 500,
-      message: "Album pictures update error!"
-    };
-  }
-
-  return null;
 }
 
 export async function updateAlbumTags(

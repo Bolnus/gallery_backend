@@ -2,10 +2,10 @@ import express from "express";
 import { timeLog, timeWarn } from "../log.js";
 import { deleteAllAlbums } from "../database/albums/albumsCollection.js";
 import { deleteAllPictures } from "../database/pictures/albumPicturesCollection.js";
-import { initAllAlbums } from "../fileSystem.js";
 import { getAllTagsFromDeps } from "../database/tags/tagAlbumsCollection.js";
 import { setAllTags } from "../database/tags/tagsCollection.js";
 import { getEnvGalleryName, getEnvGallerySrcLocation } from "../env.js";
+import { initAllAlbums } from "./commonUtils.js";
 
 export function handleError(error: unknown, res: express.Response): void {
   timeWarn(`Error | ${(error as Error)?.message}`);
