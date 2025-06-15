@@ -51,7 +51,7 @@ const upload = multer({
   dest: getEnvRootCashLocation(),
   limits: {
     fileSize: 10 * 1024 * 1024,
-    files: 10
+    files: 50
   }
 });
 
@@ -65,7 +65,7 @@ app.delete(`${baseEndPoint}/albums_list/album`, deleteAlbumRequest as RequestHan
 app.put(`${baseEndPoint}/albums_list/album/headers`, putAlbumHeadersRequest as RequestHandler);
 app.get(`${baseEndPoint}/albums_list/album/headers`, getAlbumHeadersRequest as RequestHandler);
 app.get(`${baseEndPoint}/albums_list/album/picture`, getPictureRequest as RequestHandler);
-app.post(`${baseEndPoint}/albums_list/album/picture`, upload.array("images", 5), postPicturesRequest as RequestHandler);
+app.post(`${baseEndPoint}/albums_list/album/picture`, upload.array("images"), postPicturesRequest as RequestHandler);
 app.put(`${baseEndPoint}/albums_list/album/picture`, putPicturesRequest as RequestHandler);
 app.delete(`${baseEndPoint}/tags`, deleteTagRequest as RequestHandler);
 app.get(":endpoint([\\/\\w\\.-\\?\\=]*)", notFoundRequest);

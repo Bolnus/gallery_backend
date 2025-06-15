@@ -157,14 +157,12 @@ export async function fileExistsInS3(s3Path: string): Promise<boolean> {
       Key: s3Path
     });
     await s3Client.send(headCommand);
-    timeLog(`exists ${s3Path}`);
     return true;
   } catch (localErr) {
     if ((localErr as Error)?.name !== "NotFound") {
       timeWarn("Unknown fileExistsInS3 error");
       timeLog(localErr);
     }
-    timeLog(`not found ${s3Path}`);
     return false;
   }
 }
