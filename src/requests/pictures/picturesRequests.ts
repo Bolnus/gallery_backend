@@ -1,18 +1,17 @@
+import { Readable } from "stream";
 import express from "express";
+import { GetObjectCommandOutput } from "@aws-sdk/client-s3";
 import qs from "qs";
 import { timeLog, timeWarn } from "../../log.js";
 import { handleError } from "../commonRequests.js";
-import {
-  fileExists,
-  getFullWebpFilePath,
-  getSnapWebpFilePath,
-  imageToWebpData
-} from "../../fileSystem.js";
+import { fileExists, getJoindedPath, getWebpFilePath, imageToWebpData } from "../../fileSystem.js";
 import { AlbumPicturesItemExport } from "../../database/pictures/types.js";
 import { ImagesClientCacheTime, PictureSizing } from "../../types.js";
+import { getWebpFilePathCommon } from "../../fileRouter.js";
 import { insertManyAlbumPictures, selectAlbumPictureById } from "../../database/pictures/albumPicturesCollection.js";
-import { getEnvGalleryCashLocation, getEnvGallerySrcLocation, getEnvRootCashLocation } from "../../env.js";
-import { selectAlbumById, updateAlbumSizeById } from "../../database/albums/albumsCollection.js";
+import { getEnvGalleryCashLocation, getEnvS3BaseUrl } from "../../env.js";
+import { selectAlbumById } from "../../database/albums/albumsCollection.js";
+import { fileExistsInS3, getS3FileStream, putFileToS3, saveS3FileLocally } from "../../api/s3storage.js";
 import { arrangeImageFiles, parsePostPicturesBody, parsePutPicturesBody, saveNewImageFiles } from "./utils.js";
 
 export async function getPictureRequest(req: express.Request, res: express.Response): Promise<void> {
@@ -28,43 +27,62 @@ export async function getPictureRequest(req: express.Request, res: express.Respo
 
   try {
     const albumPicture = await selectAlbumPictureById(pictureId);
-    const gallerySrcLocation = getEnvGallerySrcLocation();
-    const galleryCashLocation = getEnvGalleryCashLocation();
-    if (albumPicture?.fileFormat === ".webp" && !sizing) {
-      res.sendFile(albumPicture.fullPath);
-    } else if (albumPicture?.fileFormat) {
-      let webpFilePath: string;
-      if (sizing && sizing === PictureSizing.Snap) {
-        webpFilePath = getSnapWebpFilePath(albumPicture.fullPath).replace(gallerySrcLocation, galleryCashLocation);
+    const isS3 = !!getEnvS3BaseUrl();
+    let webpFilePathLocal = "";
+    let webpFilePathS3 = "";
+    let webpImageData: Buffer | null = null;
+    let fileStream: GetObjectCommandOutput | null = null;
+    if (albumPicture?.fileFormat?.replace(".", "") === "webp" && !sizing) {
+      if (isS3) {
+        fileStream = await getS3FileStream(albumPicture.fullPath);
       } else {
-        webpFilePath = getFullWebpFilePath(albumPicture.fullPath).replace(gallerySrcLocation, galleryCashLocation);
+        webpFilePathLocal = albumPicture.fullPath;
       }
+    } else if (albumPicture?.fileFormat) {
+      webpFilePathS3 = getWebpFilePathCommon(albumPicture.fullPath, sizing);
+      const galleryCashLocation = getEnvGalleryCashLocation();
+      const sourceFilePath = isS3 ? getJoindedPath(galleryCashLocation, albumPicture.fullPath) : albumPicture.fullPath;
+      webpFilePathLocal = getWebpFilePath(sourceFilePath, sizing);
+
       // const webpFileSize = await getFileSize(webpFilePath);
-      const webpExists = await fileExists(webpFilePath);
+      const webpExists = isS3 ? await fileExistsInS3(webpFilePathS3) : await fileExists(webpFilePathLocal);
       if (!webpExists) {
-        const webpImageData = await imageToWebpData(albumPicture.fullPath, webpFilePath, sizing);
+        if (isS3) {
+          const saveRc = await saveS3FileLocally(albumPicture.fullPath, sourceFilePath);
+          if (saveRc) {
+            res.status(500).send("Buffer save error");
+            return;
+          }
+        }
+        webpImageData = await imageToWebpData(sourceFilePath, webpFilePathLocal, sizing);
         if (!webpImageData) {
           res.status(500).send("Imagemin conversion error");
           return;
         }
+      } else if (isS3) {
+        fileStream = await getS3FileStream(webpFilePathS3);
       }
-      // else if (sizing === PictureSizing.Snap && webpFileSize > SnapFileSize)
-      // {
-      //   const webpImageData = await imageToWebpData(webpFilePath, webpFilePath, PictureSizing.ExtraReduced);
-      //   if (!webpImageData)
-      //   {
-      //     res.status(400).send("Imagemin conversion error");
-      //     return;
-      //   }
-      // }
 
-      res.set("Cache-Control", `private, max-age=${ImagesClientCacheTime}`);
-      res.sendFile(webpFilePath);
       // res.set("Content-Type", "image/webp");
       // res.set("Content-Disposition", `attachment; filename=${encodeURI(fileNameToWebp(albumPicture.fileName))}`);
       // res.send(webpImageData);
     } else {
       timeWarn(`No picture found for id=${pictureId}`);
+      res.sendStatus(404);
+    }
+    if (fileStream && fileStream.Body instanceof Readable) {
+      fileStream.Body.pipe(res);
+    } else if (webpFilePathLocal) {
+      res.set("Cache-Control", `private, max-age=${ImagesClientCacheTime}`);
+      res.sendFile(webpFilePathLocal);
+      if (isS3 && webpImageData && webpFilePathS3) {
+        const saveRc = await putFileToS3(webpImageData, webpFilePathS3, "image/webp");
+        if (saveRc) {
+          timeWarn("Error saving cache file to S3");
+        }
+      }
+    } else {
+      timeWarn(`No file created locally and in s3 for id=${pictureId}`);
       res.sendStatus(404);
     }
   } catch (error) {

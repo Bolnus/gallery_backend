@@ -1,3 +1,4 @@
+import { AwsCredentialIdentity } from "@smithy/types";
 import { getEnvLocation } from "./fileSystem.js";
 
 export function getEnvPortNumber(): string {
@@ -38,4 +39,15 @@ export function getEnvCertFilePath(): string {
 
 export function getEnvKeyFilePath(): string {
   return process.env.SSL_KEY_FILE || "";
+}
+
+export function getEnvS3BaseUrl(): string {
+  return process.env.S3_BASE_URL || "";
+}
+
+export function getEnvS3Credentials(): AwsCredentialIdentity {
+  return {
+    accessKeyId: process.env.S3_ACCESS_KEY_ID || "",
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || ""
+  };
 }

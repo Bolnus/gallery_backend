@@ -1,10 +1,16 @@
 import express from "express";
 import { isValidStringPhrase, isValidStringTag } from "../../string.js";
-import { AlbumHeadersBody, GetAlbumQuery } from "./types.js";
 import { HttpError } from "../../types.js";
 import { selectAlbumPathById, updateAlbumById } from "../../database/albums/albumsCollection.js";
 import { getRenameFilePath, renameFile } from "../../fileSystem.js";
-import { updateAlbumPicturesLocation } from "../../database/pictures/albumPicturesCollection.js";
+import { getEnvS3BaseUrl } from "../../env.js";
+import {
+  selectPicturesByAlbumId,
+  updateAlbumPicturesLocation
+} from "../../database/pictures/albumPicturesCollection.js";
+import { AlbumHeadersBody, GetAlbumQuery } from "./types.js";
+import { moveS3File } from "../../api/s3storage.js";
+import { getCommonJoindedPath, getRenameFilePathCommon } from "../../fileRouter.js";
 
 export function isValidAlbumHeadersBody(
   body: unknown,
@@ -77,7 +83,7 @@ export async function updateAlbumName(
   description?: string
 ): Promise<HttpError | null> {
   const oldAlbumPath = await selectAlbumPathById(albumId);
-  const newAlbumPath = getRenameFilePath(oldAlbumPath, albumName);
+  const newAlbumPath = getRenameFilePathCommon(oldAlbumPath, albumName);
   if (!oldAlbumPath) {
     return {
       rc: 404,
@@ -91,12 +97,25 @@ export async function updateAlbumName(
       message: "Album name is not unique!"
     };
   }
-  const rcFolderRename = await renameFile(oldAlbumPath, newAlbumPath);
-  if (rcFolderRename) {
-    return {
-      rc: 500,
-      message: "Internal rename error! Fix may be required!"
-    };
+  if (getEnvS3BaseUrl()) {
+    const albumPictures = await selectPicturesByAlbumId(albumId);
+    for (const albumPic of albumPictures) {
+      const movePicRc = await moveS3File(albumPic.fullPath, getCommonJoindedPath(newAlbumPath, albumPic.fileName));
+      if (movePicRc) {
+        return {
+          rc: 500,
+          message: "Internal rename error! Error renaming files!"
+        };
+      }
+    }
+  } else {
+    const rcFolderRename = await renameFile(oldAlbumPath, newAlbumPath);
+    if (rcFolderRename) {
+      return {
+        rc: 500,
+        message: "Internal rename error! Fix may be required!"
+      };
+    }
   }
   const rcPicturesUpdate = await updateAlbumPicturesLocation(albumId, oldAlbumPath, newAlbumPath);
   if (rcPicturesUpdate) {

@@ -1,18 +1,18 @@
-import { CopyOptions, promises, RmOptions, Stats } from "fs";
+import { CopyOptions, createWriteStream, promises, RmOptions, Stats } from "fs";
+import { pipeline } from "stream/promises";
 import path from "path";
 import imagemin from "imagemin";
 import imageminWebp, { Options } from "imagemin-webp";
 import jpegRotator from "jpeg-autorotate";
 import { timeLog, timeWarn } from "./log.js";
 import { PictureSizing, SnapFileSize } from "./types.js";
-import { AlbumPicturesItem, AlbumPicturesItemExport } from "./database/pictures/types.js";
 import { getEnvGallerySrcLocation } from "./env.js";
 
 const DIR_WEBP_FULL = ".webpFull";
 const DIR_WEBP_SNAP = ".webpSnap";
 
 export function getLowerCaseExtensionName(filePath: string): string {
-  return path.extname(filePath).toLowerCase();
+  return path.extname(filePath).replace(".", "").toLowerCase();
 }
 
 export function getEnvLocation(dirPath: string, galleryName = ""): string {
@@ -28,21 +28,19 @@ export function getEnvLocation(dirPath: string, galleryName = ""): string {
 export function fileNameToWebp(filePath: string): string {
   const dirPath = path.dirname(filePath);
   const baseFileName = path.basename(filePath, getLowerCaseExtensionName(filePath));
-  return path.join(dirPath, `${baseFileName}.webp`);
+  return path.join(dirPath, `${baseFileName}webp`);
 }
 
-export function getFullWebpFilePath(filePath: string): string {
+export function getWebpFilePath(filePath: string, sizing: PictureSizing): string {
   const dirPath = path.dirname(filePath);
-  const webpDirPath = path.join(dirPath, DIR_WEBP_FULL);
+  const webpDirPath = path.join(dirPath, sizing === PictureSizing.Snap ? DIR_WEBP_SNAP : DIR_WEBP_FULL);
   const baseFileName = path.basename(filePath, getLowerCaseExtensionName(filePath));
-  return path.join(webpDirPath, `${baseFileName}.webp`);
+  return path.join(webpDirPath, `${baseFileName}webp`);
 }
 
-export function getSnapWebpFilePath(filePath: string): string {
-  const dirPath = path.dirname(filePath);
-  const webpDirPath = path.join(dirPath, DIR_WEBP_SNAP);
-  const baseFileName = path.basename(filePath, getLowerCaseExtensionName(filePath));
-  return path.join(webpDirPath, `${baseFileName}.webp`);
+export function getWebpAlbumDir(dirPath: string, sizing: PictureSizing): string {
+  const webpDirPath = path.join(dirPath, sizing === PictureSizing.Snap ? DIR_WEBP_SNAP : DIR_WEBP_FULL);
+  return webpDirPath;
 }
 
 export async function imageToWebpData(
@@ -225,24 +223,8 @@ export async function removePath(fullPath: string, options?: RmOptions): Promise
   }
 }
 
-export function imageHasWrongName(albumPic: AlbumPicturesItem, i: number, correctFileName: string): boolean {
-  return albumPic?.fileName !== correctFileName || albumPic.pictureNumber !== i + 1;
-}
-
-export function getCorrectFileName(imageNumber: number, fileFormat: string): string {
-  return `pic_${String(imageNumber).padStart(4, "0")}.${fileFormat}`;
-}
-
-export async function imageNeedsBufferToRename(albumPic: AlbumPicturesItemExport, i: number): Promise<boolean> {
-  const correctFileName = getCorrectFileName(i, albumPic?.fileFormat);
-  if (!imageHasWrongName(albumPic, i, correctFileName)) {
-    return false;
-  }
-  return await fileExists(albumPic.fullPath.replace(albumPic.fileName, correctFileName));
-}
-
-export function getJoindedPath(path1: string, path2: string): string {
-  return path.join(path1, path2);
+export function getJoindedPath(...paths: string[]): string {
+  return path.join(...paths);
 }
 
 export async function fixJpegFileRotation(filePath: string): Promise<void> {
@@ -260,4 +242,27 @@ export function readDir(dirPath: string): Promise<string[]> {
 
 export function getFileMetadata(filePath: string): Promise<Stats> {
   return promises.stat(filePath);
+}
+
+export async function streamToFile(stream: NodeJS.ReadableStream, localFilePath: string): Promise<number> {
+  try {
+    await promises.mkdir(path.dirname(localFilePath), { recursive: true });
+    await pipeline(stream, createWriteStream(localFilePath));
+    return 0;
+  } catch (localErr) {
+    timeWarn("streamToFile error");
+    timeLog(localErr);
+    return 1;
+  }
+}
+
+export async function readLocalFile(filePath: string): Promise<Buffer | null> {
+  try {
+    const fileBuffer = await promises.readFile(filePath);
+    return fileBuffer;
+  } catch (localErr) {
+    timeWarn(`Error reading local file: ${filePath}`);
+    console.log(localErr);
+    return null;
+  }
 }

@@ -18,8 +18,6 @@ import {
 import {
   getEnvBaseEndpoint,
   getEnvConnectionString,
-  getEnvGalleryCashLocation,
-  getEnvGallerySrcLocation,
   getEnvIsHTTPS,
   getEnvPortNumber,
   getEnvRootCashLocation
@@ -28,6 +26,8 @@ import { deleteTagRequest, getTagsRequest } from "./requests/tags/tagsRequests.j
 import { getPictureRequest, postPicturesRequest, putPicturesRequest } from "./requests/pictures/picturesRequests.js";
 import { GetAlbumQuery, GetAlbumsListQuery } from "./requests/albums/types.js";
 import { QueryRequestHandler } from "./types.js";
+import { fileExistsInS3, initS3Client } from "./api/s3storage.js";
+import { getCommonJoindedPath } from "./fileRouter.js";
 
 console.time("log");
 console.time("WARN");
@@ -39,6 +39,7 @@ process.chdir(dirName);
 
 // ------------------
 await connectToDB(getEnvConnectionString());
+initS3Client();
 const baseEndPoint = getEnvBaseEndpoint();
 
 // const jsonParser = bodyParser.json();

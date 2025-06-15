@@ -2,6 +2,7 @@ import express from "express";
 import qs from "qs";
 import { timeLog, timeWarn } from "../../log.js";
 import { getValidString } from "../../string.js";
+import { removeFilesGroupFromS3, removeS3Dir } from "../../api/s3storage.js";
 import {
   deleteAlbumById,
   selectAlbumById,
@@ -12,11 +13,14 @@ import {
 } from "../../database/albums/albumsCollection.js";
 import { handleError } from "../commonRequests.js";
 import { insertAlbumWithTags, selectAlbumData, selectAlbumHeaders, updateAlbumTags } from "../../database/utils.js";
-import { generateNewAlbumPath, removePath } from "../../fileSystem.js";
+import { generateNewAlbumPath, getWebpAlbumDir, removePath } from "../../fileSystem.js";
 import { AlbumsListItem } from "../../database/albums/types.js";
-import { deletePicturesByAlbumId } from "../../database/pictures/albumPicturesCollection.js";
+import { getEnvS3BaseUrl } from "../../env.js";
+import { deletePicturesByAlbumId, selectPicturesByAlbumId } from "../../database/pictures/albumPicturesCollection.js";
 import { GetAlbumQuery, GetAlbumsListQuery } from "./types.js";
 import { isValidAlbumHeadersBody, isValidAlbumIdObject, updateAlbumName } from "./utils.js";
+import { PictureSizing } from "../../types.js";
+import { getWebpAlbumDirCommon } from "../../fileRouter.js";
 
 export async function getAlbumsListRequest(
   req: express.Request<unknown, unknown, unknown, GetAlbumsListQuery>,
@@ -176,7 +180,9 @@ export async function postAlbumRequest(
       });
       return;
     }
-    const fullPath = await generateNewAlbumPath(reqBody.tags, reqBody.albumName);
+    const fullPath = getEnvS3BaseUrl()
+      ? `/${reqBody.albumName}`
+      : await generateNewAlbumPath(reqBody.tags, reqBody.albumName);
     if (!fullPath) {
       res.status(400).json({
         title: "Error saving album!",
@@ -218,14 +224,27 @@ export async function deleteAlbumRequest(
       });
       return;
     }
-    const rmRC = await removePath(albumPath, { recursive: true, force: true });
-    if (rmRC) {
-      res.status(400).json({
-        title: "Files delete error",
-        message: "Album could not be removed due to system error!"
-      });
-      return;
+
+    if (getEnvS3BaseUrl()) {
+      const rmPicsRc = await removeS3Dir(albumPath);
+      if (rmPicsRc) {
+        res.status(400).json({
+          title: "Files delete error",
+          message: "Could not properly remove images!"
+        });
+        return;
+      }
+    } else {
+      const rmRC = await removePath(albumPath, { recursive: true, force: true });
+      if (rmRC) {
+        res.status(400).json({
+          title: "Files delete error",
+          message: "Album could not be removed due to system error!"
+        });
+        return;
+      }
     }
+
     const dbDeleteRC = await deleteAlbumById(reqData.id);
     if (dbDeleteRC) {
       res.status(400).json({

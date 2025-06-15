@@ -1,29 +1,40 @@
 import express from "express";
 import mongoose from "mongoose";
-import { AlbumPicturesItemExport } from "../../database/pictures/types.js";
+import { AlbumPicturesItem, AlbumPicturesItemExport } from "../../database/pictures/types.js";
 import {
   copyPath,
+  fileExists,
   fixJpegFileRotation,
-  getCorrectFileName,
   getJoindedPath,
-  imageHasWrongName,
-  imageNeedsBufferToRename,
+  imageToWebpData,
   moveFile,
   removePath
 } from "../../fileSystem.js";
-import { timeLog } from "../../log.js";
+import { timeLog, timeWarn } from "../../log.js";
 import {
   deletePicturesByIds,
   selectPicturesByAlbumId,
   updateAlbumPictureById
 } from "../../database/pictures/albumPicturesCollection.js";
 import { selectAlbumById, updateAlbumSizeById } from "../../database/albums/albumsCollection.js";
-import { getEnvGalleryCashLocation, getEnvGallerySrcLocation, getEnvRootCashLocation } from "../../env.js";
+import {
+  getEnvGalleryCashLocation,
+  getEnvGallerySrcLocation,
+  getEnvRootCashLocation,
+  getEnvS3BaseUrl
+} from "../../env.js";
+import { getCommonJoindedPath, getWebpAlbumDirCommon } from "../../fileRouter.js";
+import { PictureSizing } from "../../types.js";
+import {
+  fileExistsInS3,
+  moveS3File,
+  putFileToS3,
+  putLocalFileToS3,
+  removeFileFromS3,
+  removeS3Dir,
+  saveS3FileLocally
+} from "../../api/s3storage.js";
 import { PostPicturesBody, PutPicturesBody } from "./types.js";
-
-function mapImageData(el: [unknown, unknown]): [string, number] {
-  return [String(el?.[0]) || "", Number(el?.[1])];
-}
 
 export function parsePostPicturesBody(body: Record<string, unknown>, res: express.Response): PostPicturesBody | null {
   if (!body?.albumId || typeof body?.albumId !== "string") {
@@ -79,17 +90,33 @@ export async function saveNewImageFiles(
     const originalName = Buffer.from(file.originalname, "latin1").toString("utf-8");
     const imageNumber = albumImagesCount + i;
 
-    const fileType = file.mimetype.split("/")?.[1];
-    const fileName = `${file.filename}.${fileType}`;
-    const savePath = getJoindedPath(albumDir, fileName);
+    const sourcefileType = file.mimetype.split("/")?.[1];
+    const fileName = `${file.filename}.webp`;
+    const savePath = getCommonJoindedPath(albumDir, fileName);
+    const isS3 = !!getEnvS3BaseUrl();
 
-    const rc = await moveFile(file.path, savePath);
-    if (fileType === "jpeg" || fileType === "jpg") {
-      await fixJpegFileRotation(savePath);
+    if (sourcefileType === "jpeg" || sourcefileType === "jpg") {
+      await fixJpegFileRotation(file.path);
     }
+    let rc = -1;
+    if (sourcefileType === "webp") {
+      if (isS3) {
+        rc = await putFileToS3(file.buffer, savePath, file.mimetype);
+      } else {
+        rc = await moveFile(file.path, savePath);
+      }
+    } else {
+      const localSavePath = isS3 ? getJoindedPath(getEnvGalleryCashLocation(), albumDir, fileName) : savePath;
+      const webpImageData = await imageToWebpData(file.path, localSavePath, PictureSizing.Original);
+      rc = Number(!webpImageData);
+      if (!rc && isS3) {
+        rc = await putFileToS3(webpImageData, savePath, "image/webp");
+      }
+    }
+    // const webpImageData = await imageToWebpData(albumPicture.fullPath, webpFilePath, sizing);
     if (!rc) {
       pictureItems.set(originalName, {
-        fileFormat: fileType,
+        fileFormat: "webp",
         fileName,
         album: new mongoose.Types.ObjectId(albumId),
         fullPath: savePath,
@@ -104,16 +131,70 @@ export async function saveNewImageFiles(
 async function moveImageByNumber(
   albumPic: AlbumPicturesItemExport,
   imageNumber: number,
+  albumPath: string,
   oldDir?: string
 ): Promise<number> {
   const correctFileName = getCorrectFileName(imageNumber, albumPic?.fileFormat);
-  const oldPath = oldDir ? getJoindedPath(oldDir, albumPic.fileName) : albumPic.fullPath;
-  const newPath = albumPic.fullPath.replace(albumPic.fileName, correctFileName);
-  const rc = await moveFile(oldPath, newPath);
+  const oldPath = oldDir ? getCommonJoindedPath(oldDir, albumPic.fileName) : albumPic.fullPath;
+  const newPath = getCommonJoindedPath(albumPath, correctFileName);
+  let rc: number;
+  if (getEnvS3BaseUrl()) {
+    rc = await moveS3File(oldPath, newPath);
+  } else {
+    rc = await moveFile(oldPath, newPath);
+  }
+  if (rc) {
+    timeWarn(`Error move ${oldPath} -> ${newPath}`);
+    return rc;
+  }
+  return updateAlbumPictureById(albumPic._id, newPath, correctFileName, imageNumber);
+}
+
+async function moveS3ImageWithLocalBuffer(
+  albumPic: AlbumPicturesItemExport,
+  imageNumber: number,
+  albumPath: string,
+  localBufferDir: string
+): Promise<number> {
+  const correctFileName = getCorrectFileName(imageNumber, albumPic?.fileFormat);
+  // const oldPath = oldDir ? getCommonJoindedPath(oldDir, albumPic.fileName) : albumPic.fullPath;
+  const newPath = getCommonJoindedPath(albumPath, correctFileName);
+  const localFilePath = getCommonJoindedPath(localBufferDir, correctFileName);
+  let rc: number;
+  rc = await saveS3FileLocally(albumPic.fullPath, localFilePath);
+  if (rc) {
+    return rc;
+  }
+  await removeFileFromS3(albumPic.fullPath);
+  rc = await putLocalFileToS3(localFilePath, newPath, `image/${albumPic.fileFormat}`);
   if (rc) {
     return rc;
   }
   return updateAlbumPictureById(albumPic._id, newPath, correctFileName, imageNumber);
+}
+
+export function imageHasWrongName(albumPic: AlbumPicturesItem, i: number, correctFileName: string): boolean {
+  return albumPic?.fileName !== correctFileName || albumPic.pictureNumber !== i;
+}
+
+export function getCorrectFileName(imageNumber: number, fileFormat: string): string {
+  return `pic_${String(imageNumber).padStart(4, "0")}.${fileFormat}`;
+}
+
+export async function imageNeedsBufferToRename(
+  albumPic: AlbumPicturesItemExport,
+  albumDir: string,
+  i: number
+): Promise<boolean> {
+  const correctFileName = getCorrectFileName(i, albumPic?.fileFormat);
+  if (!imageHasWrongName(albumPic, i, correctFileName)) {
+    return false;
+  }
+  const correctFilePath = getCommonJoindedPath(albumDir, correctFileName);
+  if (getEnvS3BaseUrl()) {
+    return fileExistsInS3(correctFilePath);
+  }
+  return fileExists(correctFilePath);
 }
 
 export async function arrangeImageFiles(albumImageIds: string[], albumId: string): Promise<number> {
@@ -122,21 +203,30 @@ export async function arrangeImageFiles(albumImageIds: string[], albumId: string
     const albumPictures = await selectPicturesByAlbumId(albumId);
     const album = await selectAlbumById(albumId);
     if (!album || (!albumPictures.length && albumImageIds.length)) {
-      timeLog(album);
+      timeLog(`404 albumPictures.length=${albumPictures.length} albumImageIds.length=${albumImageIds.length}`);
       return 404;
     }
+    const isS3 = getEnvS3BaseUrl();
 
     // Remove cash images
-    const gallerySrcLocation = getEnvGallerySrcLocation();
-    const galleryCashLocation = getEnvGalleryCashLocation();
-    await removePath(album.fullPath.replace(gallerySrcLocation, galleryCashLocation), { recursive: true, force: true });
+    if (isS3) {
+      const s3AlbumCashLocation = getWebpAlbumDirCommon(album.fullPath, PictureSizing.Snap);
+      await removeS3Dir(s3AlbumCashLocation);
+    } else {
+      const gallerySrcLocation = getEnvGallerySrcLocation();
+      const galleryCashLocation = getEnvGalleryCashLocation();
+      await removePath(album.fullPath.replace(gallerySrcLocation, galleryCashLocation), {
+        recursive: true,
+        force: true
+      });
+    }
 
     // Array of image objects in the order of input ids array
     const sortedAlbumPictures: AlbumPicturesItemExport[] = [];
     for (const albumImageId of albumImageIds) {
       const foundAlbumPic = albumPictures.find((albimPic) => albimPic._id.toString() === albumImageId);
       if (!foundAlbumPic) {
-        timeLog(albumImageId);
+        timeWarn(`404: ${albumImageId}`);
         return 404;
       }
       sortedAlbumPictures.push(foundAlbumPic);
@@ -147,7 +237,11 @@ export async function arrangeImageFiles(albumImageIds: string[], albumId: string
     for (const albumPicture of albumPictures) {
       const foundAlbumPic = albumImageIds.find((albumImageId) => albumPicture._id.toString() === albumImageId);
       if (!foundAlbumPic) {
-        await removePath(albumPicture.fullPath, { force: true });
+        if (isS3) {
+          await removeFileFromS3(albumPicture.fullPath);
+        } else {
+          await removePath(albumPicture.fullPath, { force: true });
+        }
         albumPicturesToDelete.push(albumPicture._id);
       }
     }
@@ -159,7 +253,7 @@ export async function arrangeImageFiles(albumImageIds: string[], albumId: string
     // Whether images need to be removed first
     let bufferNeeded = false;
     for (let i = 0; i < sortedAlbumPictures.length; i++) {
-      bufferNeeded = await imageNeedsBufferToRename(sortedAlbumPictures[i], i);
+      bufferNeeded = await imageNeedsBufferToRename(sortedAlbumPictures[i], album.fullPath, i);
       if (bufferNeeded) {
         break;
       }
@@ -167,17 +261,33 @@ export async function arrangeImageFiles(albumImageIds: string[], albumId: string
     timeLog(`bufferNeeded=${bufferNeeded}`);
 
     if (bufferNeeded) {
-      const bufferDir = getJoindedPath(getEnvRootCashLocation(), ".buffer");
-      await copyPath(album.fullPath, bufferDir, { force: true, recursive: true });
+      // const bufferDir = isS3
+      //   ? getJoindedPath(getEnvRootCashLocation(), ".buffer", album.albumName)
+      //   : getCommonJoindedPath("/.buffer", album.albumName);
+      const localBufferDir = getJoindedPath(getEnvRootCashLocation(), ".buffer", album.albumName);
+      if (isS3) {
+        // await copyS3Dir(album.fullPath, bufferDir);
+      } else {
+        await copyPath(album.fullPath, localBufferDir, { force: true, recursive: true });
+      }
       for (let i = 0; i < sortedAlbumPictures.length; i++) {
         const correctFileName = getCorrectFileName(i, sortedAlbumPictures[i].fileFormat);
         if (!imageHasWrongName(sortedAlbumPictures[i], i, correctFileName)) {
           continue;
         }
-        await removePath(sortedAlbumPictures[i].fullPath);
-        const rc = await moveImageByNumber(sortedAlbumPictures[i], i, bufferDir);
-        if (rc) {
-          return 10;
+        if (isS3) {
+          const rc = await moveS3ImageWithLocalBuffer(sortedAlbumPictures[i], i, album.fullPath, localBufferDir);
+          if (rc) {
+            timeWarn("moveS3ImageWithLocalBuffer error");
+            return 10;
+          }
+        } else {
+          await removePath(sortedAlbumPictures[i].fullPath);
+          const rc = await moveImageByNumber(sortedAlbumPictures[i], i, album.fullPath, localBufferDir);
+          if (rc) {
+            timeWarn("moveImageByNumber error");
+            return 10;
+          }
         }
       }
     } else {
@@ -186,8 +296,9 @@ export async function arrangeImageFiles(albumImageIds: string[], albumId: string
         if (!imageHasWrongName(sortedAlbumPictures[i], i, correctFileName)) {
           continue;
         }
-        const rc = await moveImageByNumber(sortedAlbumPictures[i], i);
+        const rc = await moveImageByNumber(sortedAlbumPictures[i], i, album.fullPath);
         if (rc) {
+          timeWarn(`Error move ${sortedAlbumPictures[i].fileName} -> ${correctFileName}`);
           return 10;
         }
       }

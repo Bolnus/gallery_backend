@@ -2,7 +2,8 @@ import { RequestHandler } from "express";
 
 export enum PictureSizing {
   Snap = "snap",
-  ExtraReduced = "extra-reduced"
+  ExtraReduced = "extra-reduced",
+  Original = ""
 }
 
 export interface HttpError {
