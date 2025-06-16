@@ -42,9 +42,9 @@ function encodeS3CopySource(key: string): string {
 
 export async function lsBucketsS3(): Promise<number> {
   try {
-    const putCommand = new ListBucketsCommand();
+    const lsCommand = new ListBucketsCommand();
 
-    const res = await s3Client.send(putCommand);
+    const res = await s3Client.send(lsCommand);
     timeLog(JSON.stringify(res.Buckets, null, 2));
     return 0;
   } catch (localErr) {
@@ -64,9 +64,10 @@ export async function putFileToS3(file: Buffer, s3Path: string, contentType: str
     });
 
     await s3Client.send(putCommand);
+    timeLog(`putFileToS3(${encodeS3Path(s3Path)})`);
     return 0;
   } catch (localErr) {
-    timeWarn("putFileToS3 error");
+    timeWarn(`error: putFileToS3(${encodeS3Path(s3Path)}) error`);
     timeLog(localErr);
     return 1;
   }
