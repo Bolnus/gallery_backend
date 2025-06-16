@@ -58,16 +58,15 @@ export async function putFileToS3(file: Buffer, s3Path: string, contentType: str
   try {
     const putCommand = new PutObjectCommand({
       Bucket: getEnvGalleryName(),
-      Key: encodeS3Path(s3Path),
+      Key: s3Path,
       Body: file,
       ContentType: contentType
     });
 
     await s3Client.send(putCommand);
-    timeLog(`putFileToS3(${encodeS3Path(s3Path)})`);
     return 0;
   } catch (localErr) {
-    timeWarn(`error: putFileToS3(${encodeS3Path(s3Path)}) error`);
+    timeWarn(`error: putFileToS3(${s3Path})`);
     timeLog(localErr);
     return 1;
   }
@@ -82,7 +81,7 @@ export async function putLocalFileToS3(localPath: string, s3Path: string, conten
     await s3Client.send(
       new PutObjectCommand({
         Bucket: getEnvGalleryName(),
-        Key: encodeS3Path(s3Path),
+        Key: s3Path,
         Body: fileContent,
         ContentType: contentType
       })
@@ -102,7 +101,7 @@ export async function removeFilesGroupFromS3(s3PathsList: string[], quiet?: bool
         new DeleteObjectsCommand({
           Bucket: getEnvGalleryName(),
           Delete: {
-            Objects: batch.map((key) => ({ Key: encodeS3Path(key) })),
+            Objects: batch.map((key) => ({ Key: key })),
             Quiet: quiet
           }
         })
@@ -126,7 +125,7 @@ export async function getS3FileStream(s3Path: string): Promise<GetObjectCommandO
   return s3Client.send(
     new GetObjectCommand({
       Bucket: getEnvGalleryName(),
-      Key: encodeS3Path(s3Path)
+      Key: s3Path
     })
   );
 }
@@ -148,7 +147,7 @@ export async function removeFileFromS3(s3Path: string): Promise<number> {
   try {
     const deleteCommand = new DeleteObjectCommand({
       Bucket: getEnvGalleryName(),
-      Key: encodeS3Path(s3Path)
+      Key: s3Path
     });
     await s3Client.send(deleteCommand);
     return 0;
@@ -163,7 +162,7 @@ export async function fileExistsInS3(s3Path: string): Promise<boolean> {
   try {
     const headCommand = new HeadObjectCommand({
       Bucket: getEnvGalleryName(),
-      Key: encodeS3Path(s3Path)
+      Key: s3Path
     });
     await s3Client.send(headCommand);
     return true;
@@ -178,8 +177,8 @@ export async function fileExistsInS3(s3Path: string): Promise<boolean> {
 
 export async function copyS3File(oldPath: string, newPath: string): Promise<number> {
   const bucketName = getEnvGalleryName();
-  const copySource = encodeS3CopySource(oldPath);
-  const destination = encodeS3Path(newPath);
+  const copySource = encodeS3Path(oldPath);
+  const destination = newPath;
   try {
     await s3Client.send(
       new CopyObjectCommand({
@@ -208,7 +207,7 @@ export async function moveS3File(oldPath: string, newPath: string): Promise<numb
     await s3Client.send(
       new DeleteObjectCommand({
         Bucket: bucketName,
-        Key: encodeS3Path(oldPath)
+        Key: oldPath
       })
     );
 
@@ -230,7 +229,7 @@ export async function listObjectsInS3Dir(s3Directory: string): Promise<string[]>
       const response = await s3Client.send(
         new ListObjectsV2Command({
           Bucket: getEnvGalleryName(),
-          Prefix: encodeS3Path(s3Directory),
+          Prefix: s3Directory,
           ContinuationToken: continuationToken
         })
       );
