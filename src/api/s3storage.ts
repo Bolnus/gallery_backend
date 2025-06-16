@@ -37,7 +37,7 @@ function encodeS3Path(s3Path: string): string {
 }
 
 function encodeS3CopySource(key: string): string {
-  return encodeURIComponent(encodeURIComponent(key)).replace(/%2F/g, "/");
+  return encodeS3Path(encodeS3Path(key)); // .replace(/%2F/g, "/")
 }
 
 export async function lsBucketsS3(): Promise<number> {

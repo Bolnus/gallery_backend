@@ -144,7 +144,7 @@ async function moveImageByNumber(
     rc = await moveFile(oldPath, newPath);
   }
   if (rc) {
-    timeWarn("Error move files");
+    timeWarn(`Error move ${oldPath} -> ${newPath}`);
     return rc;
   }
   return updateAlbumPictureById(albumPic._id, newPath, correctFileName, imageNumber);
