@@ -32,6 +32,14 @@ export function initS3Client(): void {
   });
 }
 
+function encodeS3Path(s3Path: string): string {
+  return encodeURIComponent(s3Path).replace(/%2F/g, "/");
+}
+
+function encodeS3CopySource(key: string): string {
+  return encodeURIComponent(encodeURIComponent(key)).replace(/%2F/g, "/");
+}
+
 export async function lsBucketsS3(): Promise<number> {
   try {
     const putCommand = new ListBucketsCommand();
@@ -50,7 +58,7 @@ export async function putFileToS3(file: Buffer, s3Path: string, contentType: str
   try {
     const putCommand = new PutObjectCommand({
       Bucket: getEnvGalleryName(),
-      Key: s3Path,
+      Key: encodeS3Path(s3Path),
       Body: file,
       ContentType: contentType
     });
@@ -73,7 +81,7 @@ export async function putLocalFileToS3(localPath: string, s3Path: string, conten
     await s3Client.send(
       new PutObjectCommand({
         Bucket: getEnvGalleryName(),
-        Key: s3Path,
+        Key: encodeS3Path(s3Path),
         Body: fileContent,
         ContentType: contentType
       })
@@ -93,7 +101,7 @@ export async function removeFilesGroupFromS3(s3PathsList: string[], quiet?: bool
         new DeleteObjectsCommand({
           Bucket: getEnvGalleryName(),
           Delete: {
-            Objects: batch.map((key) => ({ Key: key })),
+            Objects: batch.map((key) => ({ Key: encodeS3Path(key) })),
             Quiet: quiet
           }
         })
@@ -117,7 +125,7 @@ export async function getS3FileStream(s3Path: string): Promise<GetObjectCommandO
   return s3Client.send(
     new GetObjectCommand({
       Bucket: getEnvGalleryName(),
-      Key: s3Path
+      Key: encodeS3Path(s3Path)
     })
   );
 }
@@ -139,7 +147,7 @@ export async function removeFileFromS3(s3Path: string): Promise<number> {
   try {
     const deleteCommand = new DeleteObjectCommand({
       Bucket: getEnvGalleryName(),
-      Key: s3Path
+      Key: encodeS3Path(s3Path)
     });
     await s3Client.send(deleteCommand);
     return 0;
@@ -154,7 +162,7 @@ export async function fileExistsInS3(s3Path: string): Promise<boolean> {
   try {
     const headCommand = new HeadObjectCommand({
       Bucket: getEnvGalleryName(),
-      Key: s3Path
+      Key: encodeS3Path(s3Path)
     });
     await s3Client.send(headCommand);
     return true;
@@ -168,19 +176,21 @@ export async function fileExistsInS3(s3Path: string): Promise<boolean> {
 }
 
 export async function copyS3File(oldPath: string, newPath: string): Promise<number> {
+  const bucketName = getEnvGalleryName();
+  const copySource = encodeS3CopySource(oldPath);
+  const destination = encodeS3Path(newPath);
   try {
-    const bucketName = getEnvGalleryName();
     await s3Client.send(
       new CopyObjectCommand({
         Bucket: bucketName,
-        CopySource: `${bucketName}/${oldPath}`,
-        Key: newPath,
+        CopySource: `${bucketName}/${copySource}`,
+        Key: destination,
         MetadataDirective: "COPY"
       })
     );
     return 0;
   } catch (localErr) {
-    timeWarn("copyS3File error");
+    timeWarn(`copyS3File error ${copySource} -> ${destination}`);
     timeLog(localErr);
     return 1;
   }
@@ -197,7 +207,7 @@ export async function moveS3File(oldPath: string, newPath: string): Promise<numb
     await s3Client.send(
       new DeleteObjectCommand({
         Bucket: bucketName,
-        Key: oldPath
+        Key: encodeS3Path(oldPath)
       })
     );
 
@@ -219,7 +229,7 @@ export async function listObjectsInS3Dir(s3Directory: string): Promise<string[]>
       const response = await s3Client.send(
         new ListObjectsV2Command({
           Bucket: getEnvGalleryName(),
-          Prefix: s3Directory,
+          Prefix: encodeS3Path(s3Directory),
           ContinuationToken: continuationToken
         })
       );
@@ -227,7 +237,7 @@ export async function listObjectsInS3Dir(s3Directory: string): Promise<string[]>
       if (response.Contents) {
         for (const fileObj of response.Contents) {
           if (fileObj.Key) {
-            allObjects.push(fileObj.Key);
+            allObjects.push(decodeURIComponent(fileObj.Key));
           }
         }
       }

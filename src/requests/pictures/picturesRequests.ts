@@ -69,6 +69,7 @@ export async function getPictureRequest(req: express.Request, res: express.Respo
     } else {
       timeWarn(`No picture found for id=${pictureId}`);
       res.sendStatus(404);
+      return;
     }
     if (fileStream && fileStream.Body instanceof Readable) {
       fileStream.Body.pipe(res);

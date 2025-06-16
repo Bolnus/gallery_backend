@@ -10,7 +10,7 @@ import {
 } from "../../database/pictures/albumPicturesCollection.js";
 import { AlbumHeadersBody, GetAlbumQuery } from "./types.js";
 import { moveS3File } from "../../api/s3storage.js";
-import { getCommonJoindedPath, getRenameFilePathCommon } from "../../fileRouter.js";
+import { clearAlbumCache, getCommonJoindedPath, getRenameFilePathCommon } from "../../fileRouter.js";
 
 export function isValidAlbumHeadersBody(
   body: unknown,
@@ -97,6 +97,10 @@ export async function updateAlbumName(
       message: "Album name is not unique!"
     };
   }
+  // clear cache images
+  await clearAlbumCache(oldAlbumPath);
+
+  // move files
   if (getEnvS3BaseUrl()) {
     const albumPictures = await selectPicturesByAlbumId(albumId);
     for (const albumPic of albumPictures) {
@@ -117,6 +121,7 @@ export async function updateAlbumName(
       };
     }
   }
+
   const rcPicturesUpdate = await updateAlbumPicturesLocation(albumId, oldAlbumPath, newAlbumPath);
   if (rcPicturesUpdate) {
     return {

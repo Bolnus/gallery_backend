@@ -23,7 +23,7 @@ import {
   getEnvRootCashLocation,
   getEnvS3BaseUrl
 } from "../../env.js";
-import { getCommonJoindedPath, getWebpAlbumDirCommon } from "../../fileRouter.js";
+import { clearAlbumCache, getCommonJoindedPath, getWebpAlbumDirCommon } from "../../fileRouter.js";
 import { PictureSizing } from "../../types.js";
 import {
   fileExistsInS3,
@@ -144,7 +144,7 @@ async function moveImageByNumber(
     rc = await moveFile(oldPath, newPath);
   }
   if (rc) {
-    timeWarn(`Error move ${oldPath} -> ${newPath}`);
+    timeWarn("Error move files");
     return rc;
   }
   return updateAlbumPictureById(albumPic._id, newPath, correctFileName, imageNumber);
@@ -208,18 +208,8 @@ export async function arrangeImageFiles(albumImageIds: string[], albumId: string
     }
     const isS3 = getEnvS3BaseUrl();
 
-    // Remove cash images
-    if (isS3) {
-      const s3AlbumCashLocation = getWebpAlbumDirCommon(album.fullPath, PictureSizing.Snap);
-      await removeS3Dir(s3AlbumCashLocation);
-    } else {
-      const gallerySrcLocation = getEnvGallerySrcLocation();
-      const galleryCashLocation = getEnvGalleryCashLocation();
-      await removePath(album.fullPath.replace(gallerySrcLocation, galleryCashLocation), {
-        recursive: true,
-        force: true
-      });
-    }
+    // clear cache images
+    await clearAlbumCache(album.fullPath);
 
     // Array of image objects in the order of input ids array
     const sortedAlbumPictures: AlbumPicturesItemExport[] = [];
