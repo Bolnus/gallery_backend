@@ -18,6 +18,7 @@ import { readLocalFile, streamToFile } from "../fileSystem.js";
 let s3Client: S3Client;
 
 export function initS3Client(): void {
+  timeLog(`init: ${getEnvS3BaseUrl()}`)
   s3Client = new S3Client({
     region: "us-east-1",
     // forcePathStyle: true,
@@ -78,6 +79,7 @@ export async function putLocalFileToS3(localPath: string, s3Path: string, conten
     if (fileContent === null) {
       return 2;
     }
+    timeLog(`putLocalFileToS3 bucket: ${getEnvGalleryName()}`)
     await s3Client.send(
       new PutObjectCommand({
         Bucket: getEnvGalleryName(),
@@ -122,6 +124,7 @@ export async function removeFilesGroupFromS3(s3PathsList: string[], quiet?: bool
 }
 
 export async function getS3FileStream(s3Path: string): Promise<GetObjectCommandOutput> {
+  timeLog(`getS3FileStream bucket: ${getEnvGalleryName()}`)
   return s3Client.send(
     new GetObjectCommand({
       Bucket: getEnvGalleryName(),
