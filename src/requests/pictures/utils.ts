@@ -101,7 +101,7 @@ export async function saveNewImageFiles(
     let rc = -1;
     if (sourcefileType === "webp") {
       if (isS3) {
-        rc = await putFileToS3(file.buffer, savePath, file.mimetype);
+        rc = await putLocalFileToS3(file.path, savePath, file.mimetype);
       } else {
         rc = await moveFile(file.path, savePath);
       }

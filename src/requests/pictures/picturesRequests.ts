@@ -41,8 +41,8 @@ export async function getPictureRequest(req: express.Request, res: express.Respo
     } else if (albumPicture?.fileFormat) {
       webpFilePathS3 = getWebpFilePathCommon(albumPicture.fullPath, sizing);
       const galleryCashLocation = getEnvGalleryCashLocation();
-      const sourceFilePath = isS3 ? getJoindedPath(galleryCashLocation, albumPicture.fullPath) : albumPicture.fullPath;
-      webpFilePathLocal = getWebpFilePath(sourceFilePath, sizing);
+      const sourceFilePath = isS3 ? getJoindedPath(galleryCashLocation, albumPicture.fileName) : albumPicture.fullPath;
+      webpFilePathLocal = getWebpFilePathCommon(sourceFilePath, sizing);
 
       // const webpFileSize = await getFileSize(webpFilePath);
       const webpExists = isS3 ? await fileExistsInS3(webpFilePathS3) : await fileExists(webpFilePathLocal);
@@ -123,6 +123,7 @@ export async function postPicturesRequest(
       });
       return;
     }
+
     const savedPictureItems: Map<string, AlbumPicturesItemExport> = await saveNewImageFiles(
       album.fullPath,
       req.files,
