@@ -59,7 +59,7 @@ export async function putFileToS3(file: Buffer, s3Path: string, contentType: str
   try {
     const putCommand = new PutObjectCommand({
       Bucket: getEnvGalleryName(),
-      Key: s3Path,
+      Key: s3Path.substring(1),
       Body: file,
       ContentType: contentType
     });
@@ -83,7 +83,7 @@ export async function putLocalFileToS3(localPath: string, s3Path: string, conten
     await s3Client.send(
       new PutObjectCommand({
         Bucket: getEnvGalleryName(),
-        Key: s3Path,
+        Key: s3Path.substring(1),
         Body: fileContent,
         ContentType: contentType
       })
@@ -103,7 +103,7 @@ export async function removeFilesGroupFromS3(s3PathsList: string[], quiet?: bool
         new DeleteObjectsCommand({
           Bucket: getEnvGalleryName(),
           Delete: {
-            Objects: batch.map((key) => ({ Key: key })),
+            Objects: batch.map((key) => ({ Key: key.substring(1) })),
             Quiet: quiet
           }
         })
@@ -124,11 +124,10 @@ export async function removeFilesGroupFromS3(s3PathsList: string[], quiet?: bool
 }
 
 export async function getS3FileStream(s3Path: string): Promise<GetObjectCommandOutput> {
-  timeLog(`getS3FileStream bucket: ${getEnvGalleryName()}`)
   return s3Client.send(
     new GetObjectCommand({
       Bucket: getEnvGalleryName(),
-      Key: s3Path
+      Key: s3Path.substring(1)
     })
   );
 }
@@ -139,9 +138,10 @@ export async function saveS3FileLocally(s3Path: string, localFilePath: string): 
     if (fileStream.Body instanceof Readable) {
       return streamToFile(fileStream.Body, localFilePath);
     }
-    throw new Error("saveS3FileLocally error");
+    throw new Error("Response unreadable");
   } catch (localErr) {
     timeWarn("saveS3FileLocally error");
+    timeLog(localErr);
     return 1;
   }
 }
@@ -150,7 +150,7 @@ export async function removeFileFromS3(s3Path: string): Promise<number> {
   try {
     const deleteCommand = new DeleteObjectCommand({
       Bucket: getEnvGalleryName(),
-      Key: s3Path
+      Key: s3Path.substring(1)
     });
     await s3Client.send(deleteCommand);
     return 0;
@@ -165,7 +165,7 @@ export async function fileExistsInS3(s3Path: string): Promise<boolean> {
   try {
     const headCommand = new HeadObjectCommand({
       Bucket: getEnvGalleryName(),
-      Key: s3Path
+      Key: s3Path.substring(1)
     });
     await s3Client.send(headCommand);
     return true;
@@ -180,8 +180,8 @@ export async function fileExistsInS3(s3Path: string): Promise<boolean> {
 
 export async function copyS3File(oldPath: string, newPath: string): Promise<number> {
   const bucketName = getEnvGalleryName();
-  const copySource = encodeS3Path(oldPath);
-  const destination = newPath;
+  const copySource = encodeS3Path(oldPath.substring(1));
+  const destination = newPath.substring(1);
   try {
     await s3Client.send(
       new CopyObjectCommand({
@@ -210,7 +210,7 @@ export async function moveS3File(oldPath: string, newPath: string): Promise<numb
     await s3Client.send(
       new DeleteObjectCommand({
         Bucket: bucketName,
-        Key: oldPath
+        Key: oldPath.substring(1)
       })
     );
 
@@ -240,7 +240,7 @@ export async function listObjectsInS3Dir(s3Directory: string): Promise<string[]>
       if (response.Contents) {
         for (const fileObj of response.Contents) {
           if (fileObj.Key) {
-            allObjects.push(decodeURIComponent(fileObj.Key));
+            allObjects.push(`/${decodeURIComponent(fileObj.Key)}`);
           }
         }
       }
