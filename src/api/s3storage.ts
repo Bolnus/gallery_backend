@@ -18,7 +18,6 @@ import { readLocalFile, streamToFile } from "../fileSystem.js";
 let s3Client: S3Client;
 
 export function initS3Client(): void {
-  timeLog(`init: ${getEnvS3BaseUrl()}`)
   s3Client = new S3Client({
     region: "us-east-1",
     // forcePathStyle: true,
@@ -35,10 +34,6 @@ export function initS3Client(): void {
 
 function encodeS3Path(s3Path: string): string {
   return encodeURIComponent(s3Path).replace(/%2F/g, "/");
-}
-
-function encodeS3CopySource(key: string): string {
-  return encodeS3Path(encodeS3Path(key)); // .replace(/%2F/g, "/")
 }
 
 export async function lsBucketsS3(): Promise<number> {
@@ -79,7 +74,6 @@ export async function putLocalFileToS3(localPath: string, s3Path: string, conten
     if (fileContent === null) {
       return 2;
     }
-    timeLog(`putLocalFileToS3 bucket: ${getEnvGalleryName()}`)
     await s3Client.send(
       new PutObjectCommand({
         Bucket: getEnvGalleryName(),
@@ -90,6 +84,8 @@ export async function putLocalFileToS3(localPath: string, s3Path: string, conten
     );
     return 0;
   } catch (localErr) {
+    timeWarn("putLocalFileToS3 error");
+    timeLog(localErr);
     return 1;
   }
 }
@@ -253,6 +249,7 @@ export async function listObjectsInS3Dir(s3Directory: string): Promise<string[]>
     return allObjects;
   } catch (localErr) {
     timeWarn(`Error listing S3 objects in ${s3Directory}`);
+    timeLog(localErr);
     return [];
   }
 }

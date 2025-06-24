@@ -17,13 +17,8 @@ import {
   updateAlbumPictureById
 } from "../../database/pictures/albumPicturesCollection.js";
 import { selectAlbumById, updateAlbumSizeById } from "../../database/albums/albumsCollection.js";
-import {
-  getEnvGalleryCashLocation,
-  getEnvGallerySrcLocation,
-  getEnvRootCashLocation,
-  getEnvS3BaseUrl
-} from "../../env.js";
-import { clearAlbumCache, getCommonJoindedPath, getWebpAlbumDirCommon } from "../../fileRouter.js";
+import { getEnvGalleryCashLocation, getEnvRootCashLocation, getEnvS3BaseUrl } from "../../env.js";
+import { clearAlbumCache, getCommonJoindedPath } from "../../fileRouter.js";
 import { PictureSizing } from "../../types.js";
 import {
   fileExistsInS3,
@@ -31,7 +26,6 @@ import {
   putFileToS3,
   putLocalFileToS3,
   removeFileFromS3,
-  removeS3Dir,
   saveS3FileLocally
 } from "../../api/s3storage.js";
 import { PostPicturesBody, PutPicturesBody } from "./types.js";

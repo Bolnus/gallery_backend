@@ -101,11 +101,11 @@ export function writeBase64DecodedFile(base64str: string, fileName: string, dirN
 export function fileNameIsImage(filePath: string): boolean {
   const fileFormat = getLowerCaseExtensionName(filePath);
   return (
-    fileFormat === ".png" ||
-    fileFormat === ".jpeg" ||
-    fileFormat === ".jpg" ||
-    fileFormat === ".webp" ||
-    fileFormat === ".gif"
+    fileFormat === "png" ||
+    fileFormat === "jpeg" ||
+    fileFormat === "jpg" ||
+    fileFormat === "webp" ||
+    fileFormat === "gif"
   );
 }
 

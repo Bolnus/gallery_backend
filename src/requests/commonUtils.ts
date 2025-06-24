@@ -21,6 +21,7 @@ export async function initAllAlbums(
   try {
     const files = await readDir(directoryPath);
     let albumSize = 0;
+    console.log(directoryPath)
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];

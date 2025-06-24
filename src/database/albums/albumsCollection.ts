@@ -11,7 +11,7 @@ import {
 
 const AlbumsListModel = mongoose.model("album", AlbumsListSchema);
 
-export async function selectAlbumsList(start: number = 0, end: number = 50): Promise<AlbumsListWithTotal> {
+export async function selectAlbumsList(start: number, end: number): Promise<AlbumsListWithTotal> {
   // if (start >= end)
   // {
   //   timeWarn(`start ${start} >= end ${end}`);
