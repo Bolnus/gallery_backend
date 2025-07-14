@@ -1,7 +1,7 @@
 import { removeS3Dir } from "./api/s3storage.js";
 import { getEnvGalleryCashLocation, getEnvGallerySrcLocation, getEnvS3BaseUrl } from "./env.js";
 import { getJoindedPath, getRenameFilePath, getWebpAlbumDir, getWebpFilePath, removePath } from "./fileSystem.js";
-import { timeLog } from "./log.js";
+import { timeLog, timeWarn } from "./log.js";
 import { PictureSizing } from "./types.js";
 
 export function getCommonJoindedPath(...paths: string[]): string {
@@ -34,7 +34,7 @@ export function getRenameFilePathCommon(oldPath: string, newFileName: string): s
   return renamedLocal;
 }
 
-export function clearAlbumCache(albumPath: string): Promise<number> {
+export async function clearAlbumCache(albumPath: string): Promise<number> {
   if (getEnvS3BaseUrl()) {
     const s3AlbumCashLocation = getWebpAlbumDirCommon(albumPath, PictureSizing.Snap);
     timeLog(`s3AlbumCashLocation=${s3AlbumCashLocation}`);
@@ -42,7 +42,8 @@ export function clearAlbumCache(albumPath: string): Promise<number> {
   }
   const gallerySrcLocation = getEnvGallerySrcLocation();
   const galleryCashLocation = getEnvGalleryCashLocation();
-  return removePath(albumPath.replace(gallerySrcLocation, galleryCashLocation), {
+  const cashAlbumPath = albumPath.replace(gallerySrcLocation, galleryCashLocation);
+  return removePath(cashAlbumPath, {
     recursive: true,
     force: true
   });

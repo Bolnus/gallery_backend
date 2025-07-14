@@ -113,7 +113,7 @@ export async function fileExists(fullPath: string): Promise<boolean> {
   try {
     await promises.access(fullPath);
     return true;
-  } catch (localErr) {
+  } catch {
     return false;
   }
 }
@@ -122,7 +122,7 @@ export async function getFileSize(fullPath: string): Promise<number> {
   try {
     const fileStats = await promises.stat(fullPath);
     return fileStats.size;
-  } catch (localErr) {
+  } catch {
     return 0;
   }
 }
@@ -169,7 +169,7 @@ export async function renameFile(oldPath: string, newPath: string): Promise<numb
 
 export async function moveFile(oldPath: string, newPath: string): Promise<number> {
   try {
-    await promises.cp(oldPath, newPath);
+    await promises.cp(oldPath, newPath, { force: true });
     await promises.rm(oldPath);
     return 0;
   } catch (localErr) {
@@ -272,7 +272,7 @@ export async function readLocalFile(filePath: string): Promise<Buffer | null> {
     return fileBuffer;
   } catch (localErr) {
     timeWarn(`Error reading local file: ${filePath}`);
-    console.log(localErr);
+    timeLog(localErr);
     return null;
   }
 }

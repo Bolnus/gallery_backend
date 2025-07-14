@@ -114,7 +114,7 @@ export async function removeFilesGroupFromS3(s3PathsList: string[], quiet?: bool
     return 0;
   } catch (localErr) {
     timeWarn("removeFilesGroupFromS3");
-    console.log(localErr);
+    timeLog(localErr);
     return 1;
   }
 }
@@ -136,7 +136,7 @@ export async function saveS3FileLocally(s3Path: string, localFilePath: string): 
     }
     throw new Error("Response unreadable");
   } catch (localErr) {
-    timeWarn("saveS3FileLocally error");
+    timeWarn(`saveS3FileLocally error: s3Path=${s3Path} localFilePath=${localFilePath}`);
     timeLog(localErr);
     return 1;
   }
@@ -228,7 +228,7 @@ export async function listObjectsInS3Dir(s3Directory: string): Promise<string[]>
       const response = await s3Client.send(
         new ListObjectsV2Command({
           Bucket: getEnvGalleryName(),
-          Prefix: s3Directory,
+          Prefix: s3Directory.substring(1),
           ContinuationToken: continuationToken
         })
       );

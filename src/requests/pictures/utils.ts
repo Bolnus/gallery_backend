@@ -13,6 +13,7 @@ import {
 import { timeLog, timeWarn } from "../../log.js";
 import {
   deletePicturesByIds,
+  insertManyAlbumPictures,
   selectPicturesByAlbumId,
   updateAlbumPictureById
 } from "../../database/pictures/albumPicturesCollection.js";
@@ -21,6 +22,7 @@ import { getEnvGalleryCashLocation, getEnvRootCashLocation, getEnvS3BaseUrl } fr
 import { clearAlbumCache, getCommonJoindedPath } from "../../fileRouter.js";
 import { PictureSizing } from "../../types.js";
 import {
+  copyS3Dir,
   fileExistsInS3,
   moveS3File,
   putFileToS3,
@@ -126,10 +128,10 @@ async function moveImageByNumber(
   albumPic: AlbumPicturesItemExport,
   imageNumber: number,
   albumPath: string,
-  oldDir?: string
+  bufferDir?: string
 ): Promise<number> {
   const correctFileName = getCorrectFileName(imageNumber, albumPic?.fileFormat);
-  const oldPath = oldDir ? getCommonJoindedPath(oldDir, albumPic.fileName) : albumPic.fullPath;
+  const oldPath = bufferDir ? getCommonJoindedPath(bufferDir, albumPic.fileName) : albumPic.fullPath;
   const newPath = getCommonJoindedPath(albumPath, correctFileName);
   let rc: number;
   if (getEnvS3BaseUrl()) {
@@ -141,7 +143,10 @@ async function moveImageByNumber(
     timeWarn(`Error move ${oldPath} -> ${newPath}`);
     return rc;
   }
-  return updateAlbumPictureById(albumPic._id, newPath, correctFileName, imageNumber);
+  if (!bufferDir) {
+    return updateAlbumPictureById(albumPic._id, newPath, correctFileName, imageNumber);
+  }
+  return 0;
 }
 
 async function moveS3ImageWithLocalBuffer(
@@ -191,13 +196,17 @@ export async function imageNeedsBufferToRename(
   return fileExists(correctFilePath);
 }
 
-export async function arrangeImageFiles(albumImageIds: string[], albumId: string): Promise<number> {
+export async function arrangeImageFiles(newAlbumImageIds: string[], albumId: string): Promise<number> {
   try {
     // Album and pictures select
     const albumPictures = await selectPicturesByAlbumId(albumId);
     const album = await selectAlbumById(albumId);
-    if (!album || (!albumPictures.length && albumImageIds.length)) {
-      timeLog(`404 albumPictures.length=${albumPictures.length} albumImageIds.length=${albumImageIds.length}`);
+    if (!album || !album._id) {
+      timeLog("No album");
+      return 404;
+    }
+    if (!album || (!albumPictures.length && newAlbumImageIds.length)) {
+      timeLog(`404 albumPictures.length=${albumPictures.length} newAlbumImageIds.length=${newAlbumImageIds.length}`);
       return 404;
     }
     const isS3 = getEnvS3BaseUrl();
@@ -207,7 +216,7 @@ export async function arrangeImageFiles(albumImageIds: string[], albumId: string
 
     // Array of image objects in the order of input ids array
     const sortedAlbumPictures: AlbumPicturesItemExport[] = [];
-    for (const albumImageId of albumImageIds) {
+    for (const albumImageId of newAlbumImageIds) {
       const foundAlbumPic = albumPictures.find((albimPic) => albimPic._id.toString() === albumImageId);
       if (!foundAlbumPic) {
         timeWarn(`404: ${albumImageId}`);
@@ -219,7 +228,7 @@ export async function arrangeImageFiles(albumImageIds: string[], albumId: string
     // Delete redundant image files
     const albumPicturesToDelete: mongoose.Types.ObjectId[] = [];
     for (const albumPicture of albumPictures) {
-      const foundAlbumPic = albumImageIds.find((albumImageId) => albumPicture._id.toString() === albumImageId);
+      const foundAlbumPic = newAlbumImageIds.find((albumImageId) => albumPicture._id.toString() === albumImageId);
       if (!foundAlbumPic) {
         if (isS3) {
           await removeFileFromS3(albumPicture.fullPath);
@@ -228,10 +237,6 @@ export async function arrangeImageFiles(albumImageIds: string[], albumId: string
         }
         albumPicturesToDelete.push(albumPicture._id);
       }
-    }
-    // Delete redundant images in DB
-    if (albumPicturesToDelete.length) {
-      await deletePicturesByIds(albumPicturesToDelete);
     }
 
     // Whether images need to be removed first
@@ -245,36 +250,63 @@ export async function arrangeImageFiles(albumImageIds: string[], albumId: string
     timeLog(`bufferNeeded=${bufferNeeded}`);
 
     if (bufferNeeded) {
-      // const bufferDir = isS3
-      //   ? getJoindedPath(getEnvRootCashLocation(), ".buffer", album.albumName)
-      //   : getCommonJoindedPath("/.buffer", album.albumName);
-      const localBufferDir = getJoindedPath(getEnvRootCashLocation(), ".buffer", album.albumName);
+      const bufferDir = isS3
+        ? getCommonJoindedPath("/.buffer", album.albumName)
+        : getJoindedPath(getEnvRootCashLocation(), ".buffer", album.albumName);
+      // const localBufferDir = getJoindedPath(getEnvRootCashLocation(), ".buffer", album.albumName);
+
       if (isS3) {
-        // await copyS3Dir(album.fullPath, bufferDir);
+        await copyS3Dir(album.fullPath, bufferDir);
       } else {
-        await copyPath(album.fullPath, localBufferDir, { force: true, recursive: true });
+        await copyPath(album.fullPath, bufferDir, { force: true, recursive: true });
       }
+
+      const newPictureItems: AlbumPicturesItem[] = [];
+      // Delete all album images in DB
+      await deletePicturesByIds(albumPictures.map((albumPic) => albumPic._id));
+      let moveRc = 0;
       for (let i = 0; i < sortedAlbumPictures.length; i++) {
         const correctFileName = getCorrectFileName(i, sortedAlbumPictures[i].fileFormat);
+        newPictureItems.push({
+          fileName: correctFileName,
+          fullPath: getCommonJoindedPath(album.fullPath, correctFileName),
+          pictureNumber: i,
+          fileFormat: sortedAlbumPictures[i].fileFormat,
+          album: album._id
+        });
         if (!imageHasWrongName(sortedAlbumPictures[i], i, correctFileName)) {
           continue;
         }
-        if (isS3) {
-          const rc = await moveS3ImageWithLocalBuffer(sortedAlbumPictures[i], i, album.fullPath, localBufferDir);
-          if (rc) {
-            timeWarn("moveS3ImageWithLocalBuffer error");
-            return 10;
-          }
-        } else {
-          await removePath(sortedAlbumPictures[i].fullPath);
-          const rc = await moveImageByNumber(sortedAlbumPictures[i], i, album.fullPath, localBufferDir);
-          if (rc) {
-            timeWarn("moveImageByNumber error");
-            return 10;
-          }
+        // if (isS3) {
+        //   const rc = await moveS3ImageWithLocalBuffer(sortedAlbumPictures[i], i, album.fullPath, bufferDir);
+        //   if (rc) {
+        //     timeWarn("moveS3ImageWithLocalBuffer error");
+        //     return 10;
+        //   }
+        // } else {
+        // }
+        // if (!isS3) {
+        //   await removePath(sortedAlbumPictures[i].fullPath);
+        // }
+        moveRc = await moveImageByNumber(sortedAlbumPictures[i], i, album.fullPath, bufferDir);
+        if (moveRc) {
+          timeWarn("moveImageByNumber error");
+          break;
         }
       }
+      const savedIds = await insertManyAlbumPictures(newPictureItems);
+      if (moveRc) {
+        return moveRc;
+      }
+      if (savedIds.length !== newPictureItems.length) {
+        timeLog("Save pictures in DB error: savedIds.length !== newPictureItems.length");
+        return 4;
+      }
     } else {
+      // Delete redundant images in DB
+      if (albumPicturesToDelete.length) {
+        await deletePicturesByIds(albumPicturesToDelete);
+      }
       for (let i = 0; i < sortedAlbumPictures.length; i++) {
         const correctFileName = getCorrectFileName(i, sortedAlbumPictures[i].fileFormat);
         if (!imageHasWrongName(sortedAlbumPictures[i], i, correctFileName)) {
@@ -287,7 +319,7 @@ export async function arrangeImageFiles(albumImageIds: string[], albumId: string
         }
       }
     }
-    await updateAlbumSizeById(albumId, albumImageIds.length);
+    await updateAlbumSizeById(albumId, newAlbumImageIds.length);
   } catch (localErr) {
     timeLog(localErr);
     return 3;

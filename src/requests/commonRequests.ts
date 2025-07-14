@@ -4,7 +4,7 @@ import { deleteAllAlbums } from "../database/albums/albumsCollection.js";
 import { deleteAllPictures } from "../database/pictures/albumPicturesCollection.js";
 import { getAllTagsFromDeps } from "../database/tags/tagAlbumsCollection.js";
 import { setAllTags } from "../database/tags/tagsCollection.js";
-import { getEnvGalleryName, getEnvGallerySrcLocation } from "../env.js";
+import { getEnvGalleryName, getEnvGallerySrcLocation, getEnvS3BaseUrl } from "../env.js";
 import { initAllAlbums } from "./commonUtils.js";
 
 export function handleError(error: unknown, res: express.Response): void {
@@ -75,6 +75,11 @@ export async function initAlbumsRequest(req: express.Request, res: express.Respo
   timeLog(`POST | ${req.path}`);
 
   try {
+    if (getEnvS3BaseUrl()) {
+      timeLog("Init unsupported with s3");
+      res.sendStatus(400);
+      return;
+    }
     await deleteAllAlbums();
     // await deleteAllTags();
     await deleteAllPictures();
