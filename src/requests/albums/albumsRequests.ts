@@ -18,9 +18,7 @@ import { AlbumsListItem } from "../../database/albums/types.js";
 import { getEnvS3BaseUrl } from "../../env.js";
 import { deletePicturesByAlbumId, selectPicturesByAlbumId } from "../../database/pictures/albumPicturesCollection.js";
 import { GetAlbumQuery, GetAlbumsListQuery } from "./types.js";
-import { isValidAlbumHeadersBody, isValidAlbumIdObject, updateAlbumName } from "./utils.js";
-import { PictureSizing } from "../../types.js";
-import { getWebpAlbumDirCommon } from "../../fileRouter.js";
+import { getValidSortFromString, isValidAlbumHeadersBody, isValidAlbumIdObject, updateAlbumName } from "./utils.js";
 
 export async function getAlbumsListRequest(
   req: express.Request<unknown, unknown, unknown, GetAlbumsListQuery>,
@@ -32,6 +30,7 @@ export async function getAlbumsListRequest(
   let pageSize = Number(req.query?.size);
   const tagsString = req.query?.tags;
   const searchName = getValidString(req.query?.name);
+  const sortBy = getValidSortFromString(req.query?.sort);
   let tagsList: string[] = [];
   if (typeof tagsString === "string") {
     tagsList = tagsString.split(",").map(getValidString);
@@ -40,14 +39,14 @@ export async function getAlbumsListRequest(
   if (Number.isNaN(pageNumber) || pageNumber < 1) {
     pageNumber = 1;
   }
-  if (Number.isNaN(pageSize) || pageSize < 10 || pageSize > 50) {
-    pageSize = 30;
+  if (Number.isNaN(pageSize) || pageSize > 50) {
+    pageSize = 50;
   }
   const albumsListStart = (pageNumber - 1) * pageSize;
   // const albumsListEnd = albumsListStart + pageSize;
 
   try {
-    const albumsList = await selectAlbumsDataList(tagsList, searchName, albumsListStart, pageSize);
+    const albumsList = await selectAlbumsDataList({ tagsList, searchName, albumsListStart, pageSize, sortBy });
     res.json(albumsList);
   } catch (error) {
     handleError(error, res);

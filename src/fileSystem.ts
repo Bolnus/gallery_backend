@@ -241,7 +241,7 @@ export async function fixJpegFileRotation(filePath: string): Promise<void> {
   try {
     const { buffer } = await jpegRotator.rotate(filePath, {});
     await promises.writeFile(filePath, buffer);
-  } catch (localErr) {
+  } catch {
     timeLog(`Error rotating file: ${filePath}`);
   }
 }

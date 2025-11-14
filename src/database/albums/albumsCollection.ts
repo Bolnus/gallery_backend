@@ -8,6 +8,7 @@ import {
   AlbumsListSchema,
   AlbumsListWithTotal
 } from "./types.js";
+import { AlbumsListSorting } from "../../requests/albums/types.js";
 
 const AlbumsListModel = mongoose.model("album", AlbumsListSchema);
 
@@ -40,12 +41,19 @@ export async function selectAlbumsList(start: number, end: number): Promise<Albu
   }
 }
 
-export async function selectAlbumsDataList(
-  tagsList: string[],
-  searchName: string,
-  albumsListStart: number,
-  albumsListEnd: number
-): Promise<AlbumsDataWithTotal> {
+export async function selectAlbumsDataList({
+  tagsList,
+  searchName,
+  albumsListStart,
+  pageSize,
+  sortBy
+}: {
+  tagsList: string[];
+  searchName: string;
+  albumsListStart: number;
+  pageSize: number;
+  sortBy?: AlbumsListSorting;
+}): Promise<AlbumsDataWithTotal> {
   try {
     const aggregationQuerySearchName: mongoose.PipelineStage[] = [];
     if (searchName) {
@@ -88,6 +96,63 @@ export async function selectAlbumsDataList(
       }
     }
 
+    const albumsList: mongoose.PipelineStage.FacetPipelineStage[] = [
+      {
+        $lookup: {
+          from: "albumpictures",
+          let: {
+            client_id: "$_id"
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$album", "$$client_id"]
+                }
+              }
+            },
+            {
+              $limit: 6
+            }
+          ],
+          as: "pictureObjects"
+        }
+      },
+      {
+        $addFields: {
+          pictureIds: "$pictureObjects._id"
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          albumName: 1,
+          albumSize: 1,
+          changedDate: 1,
+          tags: 1,
+          pictureIds: 1
+        }
+      }
+    ];
+
+    if (!sortBy || sortBy === AlbumsListSorting.changedDate) {
+      albumsList.unshift(
+        {
+          $sort: { changedDate: -1 }
+        },
+        {
+          $skip: albumsListStart
+        },
+        {
+          $limit: pageSize
+        }
+      );
+    } else {
+      albumsList.unshift({
+        $sample: { size: pageSize }
+      });
+    }
+
     const aggregationQueryMain: mongoose.PipelineStage[] = [
       {
         $facet: {
@@ -96,56 +161,11 @@ export async function selectAlbumsDataList(
               $count: "count"
             }
           ],
-          albumsList: [
-            {
-              $sort: { changedDate: -1 }
-            },
-            {
-              $skip: albumsListStart
-            },
-            {
-              $limit: albumsListEnd
-            },
-            {
-              $lookup: {
-                from: "albumpictures",
-                let: {
-                  client_id: "$_id"
-                },
-                pipeline: [
-                  {
-                    $match: {
-                      $expr: {
-                        $eq: ["$album", "$$client_id"]
-                      }
-                    }
-                  },
-                  {
-                    $limit: 6
-                  }
-                ],
-                as: "pictureObjects"
-              }
-            },
-            {
-              $addFields: {
-                pictureIds: "$pictureObjects._id"
-              }
-            },
-            {
-              $project: {
-                _id: 1,
-                albumName: 1,
-                albumSize: 1,
-                changedDate: 1,
-                tags: 1,
-                pictureIds: 1
-              }
-            }
-          ]
+          albumsList
         }
       }
     ];
+
     const albumsListWithTotal = await AlbumsListModel.aggregate<AlbumsDataWithTotalObject>([
       ...aggregationQuerySearchName,
       ...aggregationQueryTags,
@@ -159,10 +179,19 @@ export async function selectAlbumsDataList(
     //     as: "tags",
     //   },
     // },
-    // const totalCount = await AlbumsListModel.countDocuments();
+    let totalCount = 0;
+    if (albumsListWithTotal?.[0]?.totalCount?.[0]?.count) {
+      if (!sortBy || sortBy === AlbumsListSorting.changedDate) {
+        totalCount = albumsListWithTotal[0].totalCount[0].count;
+      } else if (sortBy === AlbumsListSorting.sample) {
+        totalCount =
+          albumsListWithTotal[0].totalCount[0].count > pageSize ? pageSize : albumsListWithTotal[0].totalCount[0].count;
+      }
+    }
+
     return {
       albumsList: albumsListWithTotal?.[0]?.albumsList,
-      totalCount: albumsListWithTotal?.[0]?.totalCount?.[0]?.count || 0
+      totalCount
     };
   } catch (localErr: unknown) {
     handleDataBaseError(localErr, "selectAlbumsDataList");

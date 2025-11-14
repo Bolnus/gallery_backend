@@ -1,8 +1,14 @@
+export enum AlbumsListSorting {
+  changedDate = "changedDate",
+  sample = "sample"
+}
+
 export interface GetAlbumsListQuery {
   page: string;
   size: string;
   tags: string;
   name: string;
+  sort?: AlbumsListSorting;
 }
 
 export interface GetAlbumQuery {

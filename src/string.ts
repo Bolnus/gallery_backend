@@ -20,7 +20,7 @@ export function getValidString(str: unknown): string {
       resultStr = `${resultStr}${str[i]}`;
     }
   }
-  return resultStr;
+  return resultStr.trim();
 }
 
 export function isValidStringPhrase(str: unknown): boolean {

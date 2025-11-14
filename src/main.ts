@@ -1,11 +1,11 @@
 import { dirname } from "path";
 import { fileURLToPath } from "url";
-import express, { RequestHandler, Response } from "express";
+import express, { RequestHandler } from "express";
 import bodyParser from "body-parser";
 import * as dotenv from "dotenv";
 import multer from "multer";
 import { connectToDB } from "./database/database.js";
-import { timeLog, timeWarn } from "./log.js";
+import { timeLog } from "./log.js";
 import { getStatus, initAlbumsRequest, notFoundRequest } from "./requests/commonRequests.js";
 import {
   deleteAlbumRequest,
@@ -26,8 +26,7 @@ import { deleteTagRequest, getTagsRequest } from "./requests/tags/tagsRequests.j
 import { getPictureRequest, postPicturesRequest, putPicturesRequest } from "./requests/pictures/picturesRequests.js";
 import { GetAlbumQuery, GetAlbumsListQuery } from "./requests/albums/types.js";
 import { QueryRequestHandler } from "./types.js";
-import { copyS3File, fileExistsInS3, initS3Client, listObjectsInS3Dir } from "./api/s3storage.js";
-import { getCommonJoindedPath } from "./fileRouter.js";
+import { initS3Client } from "./api/s3storage.js";
 
 console.time("log");
 console.time("WARN");
@@ -43,7 +42,7 @@ initS3Client();
 const baseEndPoint = getEnvBaseEndpoint();
 
 // const jsonParser = bodyParser.json();
-const app = express();
+const app = express().disable("x-powered-by");
 app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 app.use(bodyParser.json({ limit: "50mb" }));
 

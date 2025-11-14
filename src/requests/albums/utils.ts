@@ -8,7 +8,7 @@ import {
   selectPicturesByAlbumId,
   updateAlbumPicturesLocation
 } from "../../database/pictures/albumPicturesCollection.js";
-import { AlbumHeadersBody, GetAlbumQuery } from "./types.js";
+import { AlbumHeadersBody, AlbumsListSorting, GetAlbumQuery } from "./types.js";
 import { moveS3File } from "../../api/s3storage.js";
 import { clearAlbumCache, getCommonJoindedPath, getRenameFilePathCommon } from "../../fileRouter.js";
 
@@ -131,4 +131,14 @@ export async function updateAlbumName(
   }
 
   return null;
+}
+
+export function getValidSortFromString(str: unknown): AlbumsListSorting | undefined {
+  if (str === AlbumsListSorting.changedDate) {
+    return str;
+  }
+  if (str === AlbumsListSorting.sample) {
+    return str;
+  }
+  return undefined;
 }
