@@ -3,13 +3,14 @@ import { timeLog, timeWarn } from "../log.js";
 
 // let dbClient: Mongoose;
 
-export async function connectToDB(connectionString: string): Promise<void> {
+export async function connectToDB(connectionString: string): Promise<typeof mongoose | null> {
   try {
-    await mongoose.connect(connectionString);
+    const client = await mongoose.connect(connectionString);
     timeLog(`Connected to DB: ${connectionString}`);
+    return client;
   } catch (localErr: unknown) {
     handleDataBaseError(localErr, "Mongoose connection error");
-    process.exit(1);
+    return process.exit(1);
   }
 }
 

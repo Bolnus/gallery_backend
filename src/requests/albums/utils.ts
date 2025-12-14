@@ -2,7 +2,7 @@ import express from "express";
 import { isValidStringPhrase, isValidStringTag } from "../../string.js";
 import { HttpError } from "../../types.js";
 import { selectAlbumPathById, updateAlbumById } from "../../database/albums/albumsCollection.js";
-import { getRenameFilePath, renameFile } from "../../fileSystem.js";
+import { renameFile } from "../../fileSystem.js";
 import { getEnvS3BaseUrl } from "../../env.js";
 import {
   selectPicturesByAlbumId,

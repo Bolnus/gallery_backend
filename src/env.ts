@@ -1,5 +1,7 @@
 import { AwsCredentialIdentity } from "@smithy/types";
 import { getEnvLocation } from "./fileSystem.js";
+import { Tootle } from "./database/tootles/types.js";
+import { timeWarn } from "./log.js";
 
 export function getEnvPortNumber(): string {
   return process.env.PORT_NUMBER || "";
@@ -50,4 +52,54 @@ export function getEnvS3Credentials(): AwsCredentialIdentity {
     accessKeyId: process.env.S3_ACCESS_KEY_ID || "",
     secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || ""
   };
+}
+
+export function getEnvSessionSecret(): string {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) {
+    throw new Error("No secret");
+  }
+  return secret;
+}
+
+export function getEnvDefaultTootles(): Tootle[] {
+  const resultTootles: Tootle[] = [];
+  try {
+    const data = JSON.parse(process.env.DEFAULT_TOOTLES || "") as unknown;
+    const defaultTootlesUnparsed = (data as { d?: unknown[] })?.d;
+
+    if (Array.isArray(defaultTootlesUnparsed)) {
+      for (const tootleUnparsed of defaultTootlesUnparsed) {
+        const tootle = tootleUnparsed as Tootle;
+        if (
+          tootle?.name &&
+          typeof tootle?.name === "string" &&
+          tootle?.password &&
+          typeof tootle?.password === "string"
+        ) {
+          resultTootles.push({
+            name: tootle.name,
+            password: tootle.password
+          });
+        }
+      }
+    }
+  } catch (localErr) {
+    timeWarn(localErr);
+  }
+
+  return resultTootles;
+}
+
+export function getEnvFrontendUrls(): string[] {
+  try {
+    const data = JSON.parse(process.env.FRONTEND_URLS || "") as unknown;
+    const urls = (data as { urls?: unknown[] })?.urls;
+    if (Array.isArray(urls)) {
+      return urls.map(String);
+    }
+  } catch (localErr) {
+    timeWarn(localErr);
+  }
+  return [];
 }

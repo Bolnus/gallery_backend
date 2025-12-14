@@ -1,7 +1,5 @@
-import mongoose, { Error as MongooseError } from "mongoose";
-import { timeLog, timeWarn } from "../../log.js";
+import mongoose from "mongoose";
 import { handleDataBaseError } from "../database.js";
-import { DocumentObjectId } from "../databaseTypes.js";
 import { AlbumTagsItem, AlbumTagsSchema, CountedId, TagItem, TagWithId } from "./types.js";
 
 // export type AlbumTagsItemExport = AlbumTagsItem & DocumentObjectId;

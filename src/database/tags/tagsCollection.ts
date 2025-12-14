@@ -1,7 +1,6 @@
-import mongoose, { InferSchemaType } from "mongoose";
-import { timeLog, timeWarn } from "../../log.js";
+import mongoose from "mongoose";
 import { handleDataBaseError } from "../database.js";
-import { CountedId, TagItem, TagItemExport, TagsSchema } from "./types.js";
+import { TagItem, TagItemExport, TagsSchema } from "./types.js";
 
 const TagsModel = mongoose.model("tag", TagsSchema);
 

@@ -4,7 +4,7 @@ import { GetObjectCommandOutput } from "@aws-sdk/client-s3";
 import qs from "qs";
 import { timeLog, timeWarn } from "../../log.js";
 import { handleError } from "../commonRequests.js";
-import { fileExists, getJoindedPath, getWebpFilePath, imageToWebpData } from "../../fileSystem.js";
+import { fileExists, getJoindedPath, imageToWebpData } from "../../fileSystem.js";
 import { AlbumPicturesItemExport } from "../../database/pictures/types.js";
 import { ImagesClientCacheTime, PictureSizing } from "../../types.js";
 import { getWebpFilePathCommon } from "../../fileRouter.js";

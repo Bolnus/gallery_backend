@@ -31,7 +31,9 @@ export interface AlbumsDataWithTotal {
 
 export interface AlbumsDataWithTotalObject {
   albumsList: AlbumsDataListItem[];
-  totalCount: {
-    count: number;
-  }[];
+  totalCount: [
+    {
+      count: number;
+    }
+  ];
 }

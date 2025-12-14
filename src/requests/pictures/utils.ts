@@ -27,8 +27,7 @@ import {
   moveS3File,
   putFileToS3,
   putLocalFileToS3,
-  removeFileFromS3,
-  saveS3FileLocally
+  removeFileFromS3
 } from "../../api/s3storage.js";
 import { PostPicturesBody, PutPicturesBody } from "./types.js";
 
@@ -147,29 +146,6 @@ async function moveImageByNumber(
     return updateAlbumPictureById(albumPic._id, newPath, correctFileName, imageNumber);
   }
   return 0;
-}
-
-async function moveS3ImageWithLocalBuffer(
-  albumPic: AlbumPicturesItemExport,
-  imageNumber: number,
-  albumPath: string,
-  localBufferDir: string
-): Promise<number> {
-  const correctFileName = getCorrectFileName(imageNumber, albumPic?.fileFormat);
-  // const oldPath = oldDir ? getCommonJoindedPath(oldDir, albumPic.fileName) : albumPic.fullPath;
-  const newPath = getCommonJoindedPath(albumPath, correctFileName);
-  const localFilePath = getCommonJoindedPath(localBufferDir, correctFileName);
-  let rc: number;
-  rc = await saveS3FileLocally(albumPic.fullPath, localFilePath);
-  if (rc) {
-    return rc;
-  }
-  await removeFileFromS3(albumPic.fullPath);
-  rc = await putLocalFileToS3(localFilePath, newPath, `image/${albumPic.fileFormat}`);
-  if (rc) {
-    return rc;
-  }
-  return updateAlbumPictureById(albumPic._id, newPath, correctFileName, imageNumber);
 }
 
 export function imageHasWrongName(albumPic: AlbumPicturesItem, i: number, correctFileName: string): boolean {

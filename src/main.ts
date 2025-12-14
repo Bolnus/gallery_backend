@@ -1,9 +1,14 @@
 import { dirname } from "path";
 import { fileURLToPath } from "url";
 import express, { RequestHandler } from "express";
+import session from "express-session";
+import MongoStore from "connect-mongo";
 import bodyParser from "body-parser";
 import * as dotenv from "dotenv";
 import multer from "multer";
+import rateLimit from "express-rate-limit";
+import helmet from "helmet";
+import cors from "cors";
 import { connectToDB } from "./database/database.js";
 import { timeLog } from "./log.js";
 import { getStatus, initAlbumsRequest, notFoundRequest } from "./requests/commonRequests.js";
@@ -18,15 +23,27 @@ import {
 import {
   getEnvBaseEndpoint,
   getEnvConnectionString,
+  getEnvFrontendUrls,
+  getEnvGalleryName,
   getEnvIsHTTPS,
   getEnvPortNumber,
-  getEnvRootCashLocation
+  getEnvRootCashLocation,
+  getEnvSessionSecret
 } from "./env.js";
 import { deleteTagRequest, getTagsRequest } from "./requests/tags/tagsRequests.js";
 import { getPictureRequest, postPicturesRequest, putPicturesRequest } from "./requests/pictures/picturesRequests.js";
 import { GetAlbumQuery, GetAlbumsListQuery } from "./requests/albums/types.js";
 import { QueryRequestHandler } from "./types.js";
 import { initS3Client } from "./api/s3storage.js";
+import {
+  authMiddleware,
+  generateDefaultTootlesRequest,
+  getTootleRequest,
+  tootleLoginRequest,
+  tootleLogoutRequest
+} from "./requests/tootles/tootlesRequests.js";
+import { SESSION_ID_KEY } from "./requests/tootles/consts.js";
+import { getCorsOptions } from "./corsUtils.js";
 
 console.time("log");
 console.time("WARN");
@@ -37,14 +54,69 @@ dotenv.config();
 process.chdir(dirName);
 
 // ------------------
-await connectToDB(getEnvConnectionString());
+const dbClient = await connectToDB(getEnvConnectionString());
 initS3Client();
 const baseEndPoint = getEnvBaseEndpoint();
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  legacyHeaders: false,
+  message: {
+    title: "Login timeout",
+    message: "Too many requests, banned by login service for 5 minutes."
+  }
+});
 
 // const jsonParser = bodyParser.json();
 const app = express().disable("x-powered-by");
 app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 app.use(bodyParser.json({ limit: "50mb" }));
+app.use(
+  session({
+    secret: getEnvSessionSecret(),
+    name: SESSION_ID_KEY,
+    resave: false,
+    saveUninitialized: false,
+    rolling: true,
+    store: MongoStore.create({
+      client: dbClient?.connection.getClient(),
+      dbName: getEnvGalleryName(),
+      stringify: false,
+      autoRemove: "disabled"
+    }),
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000,
+      sameSite: "lax"
+    }
+  })
+);
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", ...getEnvFrontendUrls()],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'"],
+        frameSrc: ["'none'"]
+      }
+    },
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true
+    }
+  })
+);
+app.use(cors(getCorsOptions()));
+app.options("*", cors(getCorsOptions()));
 
 const upload = multer({
   dest: getEnvRootCashLocation(),
@@ -55,18 +127,35 @@ const upload = multer({
 });
 
 app.get("/", getStatus);
-app.post(`${baseEndPoint}/init`, initAlbumsRequest as RequestHandler);
+app.post(`${baseEndPoint}/init`, authMiddleware as RequestHandler, initAlbumsRequest as RequestHandler);
 app.get(`${baseEndPoint}/tags`, getTagsRequest as RequestHandler);
 app.get(`${baseEndPoint}/albums_list`, getAlbumsListRequest as QueryRequestHandler<GetAlbumsListQuery>);
 app.get(`${baseEndPoint}/albums_list/album`, getAlbumRequest as QueryRequestHandler<GetAlbumQuery>);
-app.post(`${baseEndPoint}/albums_list/album`, postAlbumRequest as RequestHandler);
-app.delete(`${baseEndPoint}/albums_list/album`, deleteAlbumRequest as RequestHandler);
-app.put(`${baseEndPoint}/albums_list/album/headers`, putAlbumHeadersRequest as RequestHandler);
+app.post(`${baseEndPoint}/albums_list/album`, authMiddleware as RequestHandler, postAlbumRequest as RequestHandler);
+app.delete(`${baseEndPoint}/albums_list/album`, authMiddleware as RequestHandler, deleteAlbumRequest as RequestHandler);
+app.put(
+  `${baseEndPoint}/albums_list/album/headers`,
+  authMiddleware as RequestHandler,
+  putAlbumHeadersRequest as RequestHandler
+);
 app.get(`${baseEndPoint}/albums_list/album/headers`, getAlbumHeadersRequest as RequestHandler);
 app.get(`${baseEndPoint}/albums_list/album/picture`, getPictureRequest as RequestHandler);
-app.post(`${baseEndPoint}/albums_list/album/picture`, upload.array("images"), postPicturesRequest as RequestHandler);
-app.put(`${baseEndPoint}/albums_list/album/picture`, putPicturesRequest as RequestHandler);
-app.delete(`${baseEndPoint}/tags`, deleteTagRequest as RequestHandler);
+app.post(
+  `${baseEndPoint}/albums_list/album/picture`,
+  authMiddleware as RequestHandler,
+  upload.array("images"),
+  postPicturesRequest as RequestHandler
+);
+app.put(
+  `${baseEndPoint}/albums_list/album/picture`,
+  authMiddleware as RequestHandler,
+  putPicturesRequest as RequestHandler
+);
+app.delete(`${baseEndPoint}/tags`, authMiddleware as RequestHandler, deleteTagRequest as RequestHandler);
+app.post(`${baseEndPoint}/auth/init`, generateDefaultTootlesRequest as RequestHandler);
+app.post(`${baseEndPoint}/auth/login`, authLimiter, tootleLoginRequest as RequestHandler);
+app.post(`${baseEndPoint}/auth/logout`, tootleLogoutRequest as RequestHandler);
+app.get(`${baseEndPoint}/auth/get_user`, getTootleRequest as RequestHandler);
 app.get(":endpoint([\\/\\w\\.-\\?\\=]*)", notFoundRequest);
 
 if (getEnvIsHTTPS()) {
@@ -80,7 +169,7 @@ if (getEnvIsHTTPS()) {
   // });
 } else {
   const portNumber = getEnvPortNumber();
-  timeLog(`HTTP Listening to port: ${portNumber}`);
+  timeLog(`HTTP Listening to port: ${portNumber}, ${process.env.NODE_ENV}`);
   app.listen(portNumber);
 }
 

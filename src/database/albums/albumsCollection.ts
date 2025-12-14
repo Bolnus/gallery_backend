@@ -41,6 +41,52 @@ export async function selectAlbumsList(start: number, end: number): Promise<Albu
   }
 }
 
+function getAggregationQuerySearchName(searchName: string): mongoose.PipelineStage[] {
+  const aggregationQuerySearchName: mongoose.PipelineStage[] = [];
+  if (searchName) {
+    const searchTerms = searchName.split(" ");
+    for (const word of searchTerms) {
+      if (word) {
+        aggregationQuerySearchName.push({
+          $match: {
+            albumName: {
+              $regex: word,
+              $options: "i"
+            }
+          }
+        });
+      }
+    }
+  }
+  return aggregationQuerySearchName;
+}
+
+function getAggregationQueryTags(tagsList: string[]): mongoose.PipelineStage[] {
+  const aggregationQueryTags: mongoose.PipelineStage[] = [
+    {
+      $lookup: {
+        from: "albumtags",
+        let: { client_id: "$albumName" },
+        pipeline: [{ $match: { $expr: { $eq: ["$albumName", "$$client_id"] } } }, { $project: { _id: 1, tagName: 1 } }],
+        as: "tags"
+      }
+    }
+  ];
+  if (tagsList.length) {
+    for (const tagName of tagsList) {
+      aggregationQueryTags.push({
+        $match: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          "tags.tagName": {
+            $in: [tagName]
+          }
+        }
+      });
+    }
+  }
+  return aggregationQueryTags;
+}
+
 export async function selectAlbumsDataList({
   tagsList,
   searchName,
@@ -55,47 +101,6 @@ export async function selectAlbumsDataList({
   sortBy?: AlbumsListSorting;
 }): Promise<AlbumsDataWithTotal> {
   try {
-    const aggregationQuerySearchName: mongoose.PipelineStage[] = [];
-    if (searchName) {
-      const searchTerms = searchName.split(" ");
-      for (const word of searchTerms) {
-        if (word) {
-          aggregationQuerySearchName.push({
-            $match: {
-              albumName: {
-                $regex: word,
-                $options: "i"
-              }
-            }
-          });
-        }
-      }
-    }
-    const aggregationQueryTags: mongoose.PipelineStage[] = [
-      {
-        $lookup: {
-          from: "albumtags",
-          let: { client_id: "$albumName" },
-          pipeline: [
-            { $match: { $expr: { $eq: ["$albumName", "$$client_id"] } } },
-            { $project: { _id: 1, tagName: 1 } }
-          ],
-          as: "tags"
-        }
-      }
-    ];
-    if (tagsList.length) {
-      for (const tagName of tagsList) {
-        aggregationQueryTags.push({
-          $match: {
-            "tags.tagName": {
-              $in: [tagName]
-            }
-          }
-        });
-      }
-    }
-
     const albumsList: mongoose.PipelineStage.FacetPipelineStage[] = [
       {
         $lookup: {
@@ -167,8 +172,8 @@ export async function selectAlbumsDataList({
     ];
 
     const albumsListWithTotal = await AlbumsListModel.aggregate<AlbumsDataWithTotalObject>([
-      ...aggregationQuerySearchName,
-      ...aggregationQueryTags,
+      ...getAggregationQuerySearchName(searchName),
+      ...getAggregationQueryTags(tagsList),
       ...aggregationQueryMain
     ]);
     // {

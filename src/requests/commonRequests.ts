@@ -4,7 +4,7 @@ import { deleteAllAlbums } from "../database/albums/albumsCollection.js";
 import { deleteAllPictures } from "../database/pictures/albumPicturesCollection.js";
 import { getAllTagsFromDeps } from "../database/tags/tagAlbumsCollection.js";
 import { setAllTags } from "../database/tags/tagsCollection.js";
-import { getEnvGalleryName, getEnvGallerySrcLocation, getEnvS3BaseUrl } from "../env.js";
+import { getEnvGallerySrcLocation, getEnvS3BaseUrl } from "../env.js";
 import { initAllAlbums } from "./commonUtils.js";
 
 export function handleError(error: unknown, res: express.Response): void {

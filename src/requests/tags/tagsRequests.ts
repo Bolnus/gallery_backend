@@ -1,6 +1,5 @@
 import express from "express";
 import { timeLog, timeWarn } from "../../log.js";
-import { isValidStringPhrase } from "../../string.js";
 import { deleteTagByName, selectTags } from "../../database/tags/tagsCollection.js";
 import { deleteTagDependencies } from "../../database/tags/tagAlbumsCollection.js";
 import { handleError } from "../commonRequests.js";
