@@ -116,6 +116,8 @@ app.use(
   })
 );
 app.use(cors(getCorsOptions()));
+app.set("trust proxy", 1);
+
 app.options("*", cors(getCorsOptions()));
 
 const upload = multer({
