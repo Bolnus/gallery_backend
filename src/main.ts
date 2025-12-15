@@ -22,7 +22,6 @@ import {
 } from "./requests/albums/albumsRequests.js";
 import {
   getEnvBaseEndpoint,
-  getEnvConnectionString,
   getEnvFrontendUrls,
   getEnvGalleryName,
   getEnvIsHTTPS,
@@ -54,7 +53,7 @@ dotenv.config();
 process.chdir(dirName);
 
 // ------------------
-const dbClient = await connectToDB(getEnvConnectionString());
+const dbClient = await connectToDB();
 initS3Client();
 const baseEndPoint = getEnvBaseEndpoint();
 

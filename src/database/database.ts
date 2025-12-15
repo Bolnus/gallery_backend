@@ -1,11 +1,13 @@
 import mongoose from "mongoose";
 import { timeLog, timeWarn } from "../log.js";
+import { getEnvConnectionString, getEnvGalleryName } from "../env.js";
 
 // let dbClient: Mongoose;
 
-export async function connectToDB(connectionString: string): Promise<typeof mongoose | null> {
+export async function connectToDB(): Promise<typeof mongoose | null> {
   try {
-    const client = await mongoose.connect(connectionString);
+    const connectionString = getEnvConnectionString();
+    const client = await mongoose.connect(connectionString, { dbName: getEnvGalleryName() });
     timeLog(`Connected to DB: ${connectionString}`);
     return client;
   } catch (localErr: unknown) {

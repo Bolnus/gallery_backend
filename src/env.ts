@@ -12,7 +12,7 @@ export function getEnvGalleryName(): string {
 }
 
 export function getEnvConnectionString(): string {
-  return `${process.env.DB_CONNECTION_STRING || ""}${getEnvGalleryName()}`;
+  return process.env.DB_CONNECTION_STRING || "";
 }
 
 export function getEnvGallerySrcLocation(): string {
