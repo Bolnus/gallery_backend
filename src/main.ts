@@ -27,7 +27,8 @@ import {
   getEnvIsHTTPS,
   getEnvPortNumber,
   getEnvRootCashLocation,
-  getEnvSessionSecret
+  getEnvSessionSecret,
+  getNodeEnv
 } from "./env.js";
 import { deleteTagRequest, getTagsRequest } from "./requests/tags/tagsRequests.js";
 import { getPictureRequest, postPicturesRequest, putPicturesRequest } from "./requests/pictures/picturesRequests.js";
@@ -85,7 +86,7 @@ app.use(
       autoRemove: "disabled"
     }),
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure: getNodeEnv() === "production",
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000,
       sameSite: "lax"
