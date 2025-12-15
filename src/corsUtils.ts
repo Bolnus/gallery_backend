@@ -1,5 +1,6 @@
 import { CorsOptions } from "cors";
 import { getEnvFrontendUrls } from "./env.js";
+import { timeWarn } from "./log.js";
 
 let allowedOrigins: string[];
 
@@ -16,6 +17,7 @@ function isValidOrigin(
   }
 
   if (allowedOrigins.indexOf(requestOrigin) === -1) {
+    timeWarn(`CORS error ${requestOrigin}`);
     const msg = "The CORS policy for this site does not allow access from the specified Origin.";
     callback(new Error(msg), false);
     return;

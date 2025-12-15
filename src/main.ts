@@ -139,7 +139,7 @@ app.put(
   putAlbumHeadersRequest as RequestHandler
 );
 app.get(`${baseEndPoint}/albums_list/album/headers`, getAlbumHeadersRequest as RequestHandler);
-app.get(`${baseEndPoint}/albums_list/album/picture`, getPictureRequest as RequestHandler);
+app.get(`${baseEndPoint}/albums_list/album/picture/:id`, getPictureRequest as RequestHandler);
 app.post(
   `${baseEndPoint}/albums_list/album/picture`,
   authMiddleware as RequestHandler,

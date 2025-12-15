@@ -15,9 +15,9 @@ import { fileExistsInS3, getS3FileStream, putFileToS3, saveS3FileLocally } from 
 import { arrangeImageFiles, parsePostPicturesBody, parsePutPicturesBody, saveNewImageFiles } from "./utils.js";
 
 export async function getPictureRequest(req: express.Request, res: express.Response): Promise<void> {
-  timeLog(`GET | ${req.path}${qs.stringify(req.query, { format: "RFC3986" })}`);
+  timeLog(`GET | ${req.path}?${qs.stringify(req.query, { format: "RFC3986" })}`);
 
-  const pictureId = req.query?.id;
+  const pictureId = req.params.id;
   const sizing = req.query?.sizing as PictureSizing;
   if (!pictureId || typeof pictureId !== "string") {
     timeWarn("No picture ID!");
