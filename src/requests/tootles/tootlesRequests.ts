@@ -50,7 +50,7 @@ export async function tootleLoginRequest(
     }
     const validTootle = await tootleExistsByNameAndPass(loginBody.login, loginBody.password);
     if (!validTootle) {
-      res.status(403).json({
+      res.status(401).json({
         title: "Invalid credentials",
         message: "Login or password don't match."
       });

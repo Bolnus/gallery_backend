@@ -42,6 +42,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.832.0",
+    "@iroomit/rate-limit-mongodb": "^1.0.1",
     "body-parser": "^1.20.2",
     "connect-mongo": "^6.0.0",
     "cors": "^2.8.5",

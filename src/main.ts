@@ -1,13 +1,8 @@
 import { dirname } from "path";
 import { fileURLToPath } from "url";
 import express, { RequestHandler } from "express";
-import session from "express-session";
-import MongoStore from "connect-mongo";
 import bodyParser from "body-parser";
 import * as dotenv from "dotenv";
-import multer from "multer";
-import rateLimit from "express-rate-limit";
-import helmet from "helmet";
 import cors from "cors";
 import { connectToDB } from "./database/database.js";
 import { timeLog } from "./log.js";
@@ -20,16 +15,7 @@ import {
   postAlbumRequest,
   putAlbumHeadersRequest
 } from "./requests/albums/albumsRequests.js";
-import {
-  getEnvBaseEndpoint,
-  getEnvFrontendUrls,
-  getEnvGalleryName,
-  getEnvIsHTTPS,
-  getEnvPortNumber,
-  getEnvRootCashLocation,
-  getEnvSessionSecret,
-  getNodeEnv
-} from "./env.js";
+import { getEnvBaseEndpoint, getEnvIsHTTPS, getEnvPortNumber } from "./env.js";
 import { deleteTagRequest, getTagsRequest } from "./requests/tags/tagsRequests.js";
 import { getPictureRequest, postPicturesRequest, putPicturesRequest } from "./requests/pictures/picturesRequests.js";
 import { GetAlbumQuery, GetAlbumsListQuery } from "./requests/albums/types.js";
@@ -42,8 +28,11 @@ import {
   tootleLoginRequest,
   tootleLogoutRequest
 } from "./requests/tootles/tootlesRequests.js";
-import { SESSION_ID_KEY } from "./requests/tootles/consts.js";
 import { getCorsOptions } from "./corsUtils.js";
+import { getUploadMiddleware } from "./middlewares/upload.js";
+import { getLimiterMiddleware } from "./middlewares/limiter.js";
+import { getSessionMiddleware } from "./middlewares/session.js";
+import { getHelmetMiddleware } from "./middlewares/helmet.js";
 
 console.time("log");
 console.time("WARN");
@@ -55,79 +44,21 @@ process.chdir(dirName);
 
 // ------------------
 const dbClient = await connectToDB();
+if (!dbClient) {
+  process.exit(1);
+}
 initS3Client();
 const baseEndPoint = getEnvBaseEndpoint();
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  legacyHeaders: false,
-  message: {
-    title: "Login timeout",
-    message: "Too many requests, banned by login service for 5 minutes."
-  }
-});
-
-// const jsonParser = bodyParser.json();
 const app = express().disable("x-powered-by");
 app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 app.use(bodyParser.json({ limit: "50mb" }));
-app.use(
-  session({
-    secret: getEnvSessionSecret(),
-    name: SESSION_ID_KEY,
-    resave: false,
-    saveUninitialized: false,
-    rolling: true,
-    store: MongoStore.create({
-      client: dbClient?.connection.getClient(),
-      dbName: getEnvGalleryName(),
-      stringify: false,
-      autoRemove: "disabled"
-    }),
-    cookie: {
-      secure: getNodeEnv() === "production",
-      httpOnly: true,
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-      sameSite: "lax" // "none"
-    }
-  })
-);
-app.use(
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        scriptSrc: ["'self'"],
-        imgSrc: ["'self'", "data:", "https:"],
-        connectSrc: ["'self'", ...getEnvFrontendUrls()],
-        fontSrc: ["'self'"],
-        objectSrc: ["'none'"],
-        mediaSrc: ["'self'"],
-        frameSrc: ["'none'"]
-      }
-    },
-    hsts: {
-      maxAge: 31536000,
-      includeSubDomains: true,
-      preload: true
-    }
-  })
-);
+app.use(getSessionMiddleware(dbClient));
+app.use(getHelmetMiddleware());
 app.use(cors(getCorsOptions()));
 app.set("trust proxy", 1);
 
 app.options("*", cors(getCorsOptions()));
-
-const upload = multer({
-  dest: getEnvRootCashLocation(),
-  limits: {
-    fileSize: 10 * 1024 * 1024,
-    files: 50
-  }
-});
-
 app.get("/", getStatus);
 app.post(`${baseEndPoint}/init`, authMiddleware as RequestHandler, initAlbumsRequest as RequestHandler);
 app.get(`${baseEndPoint}/tags`, getTagsRequest as RequestHandler);
@@ -145,7 +76,7 @@ app.get(`${baseEndPoint}/albums_list/album/picture/:id`, getPictureRequest as Re
 app.post(
   `${baseEndPoint}/albums_list/album/picture`,
   authMiddleware as RequestHandler,
-  upload.array("images"),
+  getUploadMiddleware().array("images"),
   postPicturesRequest as RequestHandler
 );
 app.put(
@@ -155,7 +86,7 @@ app.put(
 );
 app.delete(`${baseEndPoint}/tags`, authMiddleware as RequestHandler, deleteTagRequest as RequestHandler);
 app.post(`${baseEndPoint}/auth/init`, generateDefaultTootlesRequest as RequestHandler);
-app.post(`${baseEndPoint}/auth/login`, authLimiter, tootleLoginRequest as RequestHandler);
+app.post(`${baseEndPoint}/auth/login`, getLimiterMiddleware(), tootleLoginRequest as RequestHandler);
 app.post(`${baseEndPoint}/auth/logout`, tootleLogoutRequest as RequestHandler);
 app.get(`${baseEndPoint}/auth/get_user`, getTootleRequest as RequestHandler);
 app.get(":endpoint([\\/\\w\\.-\\?\\=]*)", notFoundRequest);

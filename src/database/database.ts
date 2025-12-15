@@ -12,7 +12,7 @@ export async function connectToDB(): Promise<typeof mongoose | null> {
     return client;
   } catch (localErr: unknown) {
     handleDataBaseError(localErr, "Mongoose connection error");
-    return process.exit(1);
+    return null;
   }
 }
 

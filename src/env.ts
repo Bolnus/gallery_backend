@@ -105,6 +105,5 @@ export function getEnvFrontendUrls(): string[] {
 }
 
 export function getNodeEnv(): string {
-  console.log("isProduction=", process.env.NODE_ENV === "production");
   return process.env.NODE_ENV || "";
 }
