@@ -11,7 +11,6 @@ export function getHelmetMiddleware(): ReturnType<typeof helmet> {
         formAction: ["'none'"],
         objectSrc: ["'none'"],
         frameSrc: ["'none'"],
-        styleSrc: ["'self'"],
         scriptSrc: ["'self'"],
         imgSrc: ["'self'", "data:"]
       }

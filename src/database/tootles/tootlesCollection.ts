@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { Tootle, TootleExport, TootlesSchema } from "./types.js";
 import { handleDataBaseError } from "../database.js";
 import { hashPassword, passwordMatchesWithHash } from "../../encrypt.js";
+import { timeLog } from "console";
 
 const TootlesModel = mongoose.model("tootles", TootlesSchema);
 
@@ -17,6 +18,7 @@ export async function insertTootle(tootle: Tootle): Promise<number> {
 
 export async function insertManyTootles(tootles: Tootle[]): Promise<number> {
   try {
+    let insertedCount = 0;
     for (const tootle of tootles) {
       const encryptedTootle = {
         ...tootle,
@@ -26,8 +28,12 @@ export async function insertManyTootles(tootles: Tootle[]): Promise<number> {
       if (foundTootle) {
         await TootlesModel.replaceOne({ _id: foundTootle._id }, encryptedTootle);
       } else {
+        insertedCount++;
         await TootlesModel.insertOne(encryptedTootle);
       }
+    }
+    if (insertedCount) {
+      timeLog(`Inserted ${insertedCount} tootles`);
     }
     return 0;
   } catch (localErr) {
