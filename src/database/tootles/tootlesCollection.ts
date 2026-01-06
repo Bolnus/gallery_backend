@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import { Tootle, TootleExport, TootlesSchema } from "./types.js";
 import { handleDataBaseError } from "../database.js";
 import { hashPassword, passwordMatchesWithHash } from "../../encrypt.js";
-import { timeLog } from "console";
+import { timeLog } from "../../log.js";
 
 const TootlesModel = mongoose.model("tootles", TootlesSchema);
 
