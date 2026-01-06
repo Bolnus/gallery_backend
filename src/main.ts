@@ -86,7 +86,7 @@ app.put(
 );
 app.delete(`${baseEndPoint}/tags`, authMiddleware as RequestHandler, deleteTagRequest as RequestHandler);
 app.post(`${baseEndPoint}/auth/init`, generateDefaultTootlesRequest as RequestHandler);
-app.post(`${baseEndPoint}/auth/login`, getLimiterMiddleware(), tootleLoginRequest as RequestHandler);
+app.post(`${baseEndPoint}/auth/login`, getLimiterMiddleware(dbClient), tootleLoginRequest as RequestHandler);
 app.post(`${baseEndPoint}/auth/logout`, tootleLogoutRequest as RequestHandler);
 app.get(`${baseEndPoint}/auth/get_user`, getTootleRequest as RequestHandler);
 app.get(":endpoint([\\/\\w\\.-\\?\\=]*)", notFoundRequest);

@@ -1,11 +1,23 @@
 import rateLimit, { RateLimitRequestHandler } from "express-rate-limit";
-import { MongoDBStore as RateLimitMongoStore } from "@iroomit/rate-limit-mongodb";
+import mongoose from "mongoose";
+import { MongoDBStoreOptions, MongoDBStore as RateLimitMongoStore } from "@iroomit/rate-limit-mongodb";
 import { getEnvConnectionString, getEnvGalleryName } from "../env.js";
 import { timeLog } from "../log.js";
 
-export function getLimiterMiddleware(): RateLimitRequestHandler {
+export function getLimiterMiddleware(dbClient: typeof mongoose): RateLimitRequestHandler {
   const connectionString = `${getEnvConnectionString()}${getEnvGalleryName()}`;
-  timeLog(`Limiter connect: ${connectionString}`);
+  const collection = dbClient.connection.db?.collection("rate_limits");
+  let config: MongoDBStoreOptions;
+  if (collection) {
+    config = {
+      collection
+    };
+  } else {
+    timeLog(`Limiter connect: ${connectionString}`);
+    config = {
+      uri: connectionString
+    };
+  }
   return rateLimit({
     windowMs: 5 * 60 * 1000,
     max: 6,
@@ -14,10 +26,6 @@ export function getLimiterMiddleware(): RateLimitRequestHandler {
       title: "Login timeout",
       message: "Too many requests, banned by login service for 5 minutes."
     },
-    store: new RateLimitMongoStore({
-      uri: connectionString
-      // authSource: getEnvGalleryName()
-      // connectionOptions: {  }
-    })
+    store: new RateLimitMongoStore(config)
   });
 }
