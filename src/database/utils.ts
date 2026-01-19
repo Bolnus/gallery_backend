@@ -12,9 +12,12 @@ import {
 import { AlbumsDataListItem, AlbumsListItem } from "./albums/types.js";
 import { insertNewTag, updateAlbumsCount } from "./tags/tagsCollection.js";
 
-export async function selectAlbumData(albumId: string): Promise<AlbumsDataListItem | null> {
+export async function selectAlbumData(albumId: string, locale?: string): Promise<AlbumsDataListItem | null> {
   const album = await selectAlbumById(albumId);
   if (!album) {
+    return null;
+  }
+  if (locale && album.locale && locale !== album.locale) {
     return null;
   }
   const albumTags = await selectAlbumTags(album.albumName);
@@ -26,7 +29,8 @@ export async function selectAlbumData(albumId: string): Promise<AlbumsDataListIt
     changedDate: album.changedDate,
     description: album.description,
     tags: albumTags,
-    pictureIds: albumPictures
+    pictureIds: albumPictures,
+    locale: album.locale
   };
   return exportAlbumData;
 }

@@ -13,20 +13,12 @@ import { AlbumsListSorting } from "../../requests/albums/types.js";
 const AlbumsListModel = mongoose.model("album", AlbumsListSchema);
 
 export async function selectAlbumsList(start: number, end: number): Promise<AlbumsListWithTotal> {
-  // if (start >= end)
-  // {
-  //   timeWarn(`start ${start} >= end ${end}`);
-  //   return {
-  //     albumsList: [],
-  //     totalCount: 0
-  //   };
-  // }
   try {
     const albumListItems = await AlbumsListModel.find({}, ["_id", "albumName", "albumSize", "changedDate"])
       .sort({ changedDate: -1 })
       .skip(start)
-      .limit(end); //
-    // timeLog(`${end} - ${start} = ${albumListItems.length}`)
+      .limit(end);
+
     const totalCount = await AlbumsListModel.countDocuments();
     return {
       albumsList: albumListItems,
@@ -87,18 +79,39 @@ function getAggregationQueryTags(tagsList: string[]): mongoose.PipelineStage[] {
   return aggregationQueryTags;
 }
 
+function getLocaleFilter(locale?: string): mongoose.PipelineStage[] {
+  if (!locale) {
+    return [];
+  }
+
+  return [
+    {
+      $match: {
+        $or: [
+          { locale: { $exists: false } }, // No locale field at all
+          { locale: null }, // Null locale
+          { locale: "" }, // Empty string locale
+          { locale } // Exact locale match
+        ]
+      }
+    }
+  ];
+}
+
 export async function selectAlbumsDataList({
   tagsList,
   searchName,
   albumsListStart,
   pageSize,
-  sortBy
+  sortBy,
+  locale
 }: {
   tagsList: string[];
   searchName: string;
   albumsListStart: number;
   pageSize: number;
   sortBy?: AlbumsListSorting;
+  locale?: string;
 }): Promise<AlbumsDataWithTotal> {
   try {
     const albumsList: mongoose.PipelineStage.FacetPipelineStage[] = [
@@ -135,7 +148,8 @@ export async function selectAlbumsDataList({
           albumSize: 1,
           changedDate: 1,
           tags: 1,
-          pictureIds: 1
+          pictureIds: 1,
+          locale: 1
         }
       }
     ];
@@ -172,18 +186,12 @@ export async function selectAlbumsDataList({
     ];
 
     const albumsListWithTotal = await AlbumsListModel.aggregate<AlbumsDataWithTotalObject>([
+      ...getLocaleFilter(locale),
       ...getAggregationQuerySearchName(searchName),
       ...getAggregationQueryTags(tagsList),
       ...aggregationQueryMain
     ]);
-    // {
-    //   $lookup: {
-    //     from: "albumtags",
-    //     localField: "albumName",
-    //     foreignField: "albumName",
-    //     as: "tags",
-    //   },
-    // },
+
     let totalCount = 0;
     if (albumsListWithTotal?.[0]?.totalCount?.[0]?.count) {
       if (!sortBy || sortBy === AlbumsListSorting.changedDate) {
@@ -240,14 +248,16 @@ export async function updateAlbumById(
   albumId: string,
   albumName: string,
   fullPath: string,
-  description?: string
+  description?: string,
+  locale?: string
 ): Promise<number> {
   try {
     await AlbumsListModel.findByIdAndUpdate(albumId, {
       albumName,
       fullPath,
       changedDate: new Date().toISOString(),
-      description
+      description,
+      locale
     });
     return 0;
   } catch (localErr) {
@@ -260,7 +270,7 @@ export async function updateAlbumSizeById(albumId: string, albumSize: number): P
     await AlbumsListModel.findByIdAndUpdate(albumId, { albumSize, changedDate: new Date().toISOString() });
     return 0;
   } catch (localErr) {
-    return handleDataBaseError(localErr, "updateAlbumById");
+    return handleDataBaseError(localErr, "updateAlbumSizeById");
   }
 }
 
@@ -293,14 +303,19 @@ export async function deleteAlbumById(albumId: string): Promise<number> {
   }
 }
 
-export async function updateAlbumDescriptionById(albumId: string, description?: string): Promise<number> {
+export async function updateAlbumDescriptionById(
+  albumId: string,
+  description?: string,
+  locale?: string
+): Promise<number> {
   try {
     await AlbumsListModel.findByIdAndUpdate(albumId, {
       changedDate: new Date().toISOString(),
-      description
+      description,
+      locale: locale || null
     });
     return 0;
   } catch (localErr) {
-    return handleDataBaseError(localErr, "updateAlbumById");
+    return handleDataBaseError(localErr, "updateAlbumDescriptionById");
   }
 }

@@ -3,13 +3,52 @@ import { DocumentObjectId } from "../databaseTypes.js";
 import { TagWithId } from "../tags/types.js";
 
 export const AlbumsListSchema = new mongoose.Schema({
-  albumName: { type: String, required: true, unique: true },
+  albumName: { type: String, required: true, unique: true, trim: true },
   fullPath: { type: String, required: true, unique: true },
   albumSize: { type: Number, required: true },
   changedDate: { type: String, required: true },
-  description: { type: String }
+  description: { type: String, trim: true },
+  locale: { type: String, required: false, enum: ["en", "ru"] }
+  // descriptionLocalized: {
+  //   en: { type: String, trim: true },
+  //   ru: { type: String, trim: true }
+  // }
+  // albumNameLocalized: {
+  //   en: { type: String, trim: true },
+  //   ru: { type: String, trim: true }
+  // },
 });
+
+// Text search optimization, single index
 AlbumsListSchema.index({ albumName: "text" });
+// AlbumsListSchema.index(
+//   {
+//     albumName: "text",
+//     "albumNameLocalized.en": "text",
+//     "albumNameLocalized.ru": "text"
+//   },
+//   {
+//     name: "album_names_text",
+//     sparse: true
+//   }
+// );
+// Duplicates search optimization for nested fields
+// AlbumsListSchema.index(
+//   { "albumNameLocalized.en": 1 },
+//   {
+//     unique: true,
+//     sparse: true,
+//     name: "albumName_en_unique"
+//   }
+// );
+// AlbumsListSchema.index(
+//   { "albumNameLocalized.ru": 1 },
+//   {
+//     unique: true,
+//     sparse: true,
+//     name: "albumName_ru_unique"
+//   }
+// );
 
 export type AlbumsListItem = InferSchemaType<typeof AlbumsListSchema> & Partial<DocumentObjectId>;
 export type AlbumsListItemExport = Omit<AlbumsListItem, "fullPath">;

@@ -12,6 +12,6 @@ export interface HttpError {
 }
 
 export const SnapFileSize = 16000;
-export const ImagesClientCacheTime = 60 * 60 * 24;
+export const ImagesClientCacheTime = 60 * 60 * 24 * 10;
 
 export type QueryRequestHandler<T> = RequestHandler<unknown, unknown, unknown, T>;

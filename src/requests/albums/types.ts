@@ -20,4 +20,5 @@ export interface AlbumHeadersBody {
   id: string;
   tags: string[];
   description: string;
+  locale: "en" | "ru";
 }

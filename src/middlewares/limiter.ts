@@ -20,7 +20,7 @@ export function getLimiterMiddleware(dbClient: typeof mongoose): RateLimitReques
   }
   return rateLimit({
     windowMs: 5 * 60 * 1000,
-    max: 6,
+    limit: 6,
     legacyHeaders: false,
     message: {
       title: "Login timeout",

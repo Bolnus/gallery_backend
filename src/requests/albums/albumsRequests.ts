@@ -24,7 +24,7 @@ export async function getAlbumsListRequest(
   req: express.Request<unknown, unknown, unknown, GetAlbumsListQuery>,
   res: express.Response
 ): Promise<void> {
-  timeLog(`GET | ${req.path}?${qs.stringify(req.query, { format: "RFC3986" })}`);
+  timeLog(`GET | ${req.path}?${qs.stringify(req.query, { format: "RFC3986" })} | ${req.headers["accept-language"]}`);
 
   let pageNumber = Number(req.query?.page);
   let pageSize = Number(req.query?.size);
@@ -34,6 +34,10 @@ export async function getAlbumsListRequest(
   let tagsList: string[] = [];
   if (typeof tagsString === "string") {
     tagsList = tagsString.split(",").map(getValidString);
+  }
+  let locale = req.headers["accept-language"];
+  if (locale && typeof locale === "string") {
+    locale = locale.substring(0, 2).toLowerCase();
   }
 
   if (Number.isNaN(pageNumber) || pageNumber < 1) {
@@ -46,7 +50,7 @@ export async function getAlbumsListRequest(
   // const albumsListEnd = albumsListStart + pageSize;
 
   try {
-    const albumsList = await selectAlbumsDataList({ tagsList, searchName, albumsListStart, pageSize, sortBy });
+    const albumsList = await selectAlbumsDataList({ tagsList, searchName, albumsListStart, pageSize, sortBy, locale });
     res.json(albumsList);
   } catch (error) {
     handleError(error, res);
@@ -58,14 +62,19 @@ export async function getAlbumRequest(
   req: express.Request<unknown, unknown, unknown, GetAlbumQuery>,
   res: express.Response
 ): Promise<void> {
-  timeLog(`GET | ${req.path}`);
+  timeLog(`GET | ${req.path} | ${req.headers["accept-language"]}`);
+
+  let locale = req.headers["accept-language"];
+  if (locale && typeof locale === "string") {
+    locale = locale.substring(0, 2).toLowerCase();
+  }
 
   if (!isValidAlbumIdObject(req.query, res)) {
     return;
   }
 
   try {
-    const album = await selectAlbumData(req.query.id);
+    const album = await selectAlbumData(req.query.id, locale);
     if (!album) {
       res.sendStatus(404);
       return;
@@ -94,14 +103,21 @@ export async function putAlbumHeadersRequest(
     if (album) {
       oldAlbumName = album.albumName;
     }
-    if (!oldAlbumName) {
+    if (!album || !oldAlbumName) {
       res.status(404).json({
         title: "Data error!",
         message: "No album found."
       });
+      return;
     }
+    
     if (reqBody.albumName !== oldAlbumName) {
-      const rcUpdateAlbumName = await updateAlbumName(reqBody.id, reqBody.albumName, reqBody.description);
+      const rcUpdateAlbumName = await updateAlbumName(
+        reqBody.id,
+        reqBody.albumName,
+        reqBody.description,
+        reqBody.locale
+      );
       if (rcUpdateAlbumName) {
         res.status(rcUpdateAlbumName.rc).json({
           title: rcUpdateAlbumName.message,
@@ -109,8 +125,8 @@ export async function putAlbumHeadersRequest(
         });
         return;
       }
-    } else if (reqBody.description !== album?.description) {
-      const rcUpdateAlbumName = await updateAlbumDescriptionById(reqBody.id, reqBody.description);
+    } else if (reqBody.description !== album?.description || reqBody.locale !== album.locale) {
+      const rcUpdateAlbumName = await updateAlbumDescriptionById(reqBody.id, reqBody.description, reqBody.locale);
       if (rcUpdateAlbumName) {
         res.status(400).json({
           title: "Could not update description",
@@ -194,7 +210,8 @@ export async function postAlbumRequest(
       fullPath,
       changedDate: new Date().toISOString(),
       description: reqBody.description,
-      albumSize: 0
+      albumSize: 0,
+      locale: reqBody.locale
     };
     const objectID = await insertAlbumWithTags(albumInfo, reqBody.tags);
 

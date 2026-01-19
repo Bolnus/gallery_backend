@@ -20,28 +20,29 @@ export function isValidAlbumHeadersBody(
   const reqBody = body as AlbumHeadersBody;
   if (!reqBody?.albumName) {
     res.status(400).json({
-      title: "Empty album name!",
-      message: "Album name can't be empty!"
+      title: "Empty album name",
+      message: "Album name can't be empty"
     });
     return false;
   }
   if (!isValidStringPhrase(reqBody?.albumName)) {
     res.status(400).json({
-      title: "Invalid album name!",
-      message: "Invalid characters found in album name!"
+      title: "Invalid album name",
+      message: "Invalid characters found in album name"
     });
     return false;
   }
   if (requireId && !isValidStringTag(reqBody?.id)) {
     res.status(400).json({
-      title: "Invalid album id!",
-      message: "Invalid characters found in album id!"
+      title: "Invalid album id",
+      message: "Invalid characters found in album id"
     });
     return false;
   }
+  const dataError = "Data error";
   if (!Array.isArray(reqBody?.tags)) {
     res.status(400).json({
-      title: "Data error!",
+      title: dataError,
       message: "No tags array provided!"
     });
     return false;
@@ -49,16 +50,23 @@ export function isValidAlbumHeadersBody(
   for (const tag of reqBody.tags) {
     if (!isValidStringTag(tag)) {
       res.status(400).json({
-        title: "Invalid tag provided!",
-        message: `Invalid characters found in tag: ${tag}.`
+        title: "Invalid tag provided",
+        message: `Invalid characters found in tag: ${tag}`
       });
       return false;
     }
   }
   if (reqBody?.description !== undefined && typeof reqBody?.description !== "string") {
     res.status(400).json({
-      title: "Data error!",
-      message: "Wrong description type!"
+      title: dataError,
+      message: "Wrong description type"
+    });
+    return false;
+  }
+  if (reqBody?.locale !== undefined && typeof reqBody?.locale !== "string") {
+    res.status(400).json({
+      title: dataError,
+      message: "Wrong locale type"
     });
     return false;
   }
@@ -80,7 +88,8 @@ export function isValidAlbumIdObject(body: unknown, res: express.Response): body
 export async function updateAlbumName(
   albumId: string,
   albumName: string,
-  description?: string
+  description?: string,
+  locale?: string
 ): Promise<HttpError | null> {
   const oldAlbumPath = await selectAlbumPathById(albumId);
   const newAlbumPath = getRenameFilePathCommon(oldAlbumPath, albumName);
@@ -90,7 +99,7 @@ export async function updateAlbumName(
       message: "No album found for id!"
     };
   }
-  const rcAlbumUpdate = await updateAlbumById(albumId, albumName, newAlbumPath, description);
+  const rcAlbumUpdate = await updateAlbumById(albumId, albumName, newAlbumPath, description, locale);
   if (rcAlbumUpdate) {
     return {
       rc: 400,
