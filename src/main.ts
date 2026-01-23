@@ -17,7 +17,12 @@ import {
 } from "./requests/albums/albumsRequests.js";
 import { getEnvBaseEndpoint, getEnvIsHTTPS, getEnvPortNumber } from "./env.js";
 import { deleteTagRequest, getTagsRequest } from "./requests/tags/tagsRequests.js";
-import { getPictureRequest, postPicturesRequest, putPicturesRequest } from "./requests/pictures/picturesRequests.js";
+import {
+  getPictureRequest,
+  deletePicturesCache,
+  postPicturesRequest,
+  putPicturesRequest
+} from "./requests/pictures/picturesRequests.js";
 import { GetAlbumQuery, GetAlbumsListQuery } from "./requests/albums/types.js";
 import { QueryRequestHandler } from "./types.js";
 import { initS3Client } from "./api/s3storage.js";
@@ -89,6 +94,7 @@ app.post(`${baseEndPoint}/auth/init`, generateDefaultTootlesRequest as RequestHa
 app.post(`${baseEndPoint}/auth/login`, getLimiterMiddleware(dbClient), tootleLoginRequest as RequestHandler);
 app.post(`${baseEndPoint}/auth/logout`, tootleLogoutRequest as RequestHandler);
 app.get(`${baseEndPoint}/auth/get_user`, getTootleRequest as RequestHandler);
+app.delete(`${baseEndPoint}/pictures/cache`, authMiddleware as RequestHandler, deletePicturesCache as RequestHandler);
 app.get(":endpoint([\\/\\w\\.-\\?\\=]*)", notFoundRequest);
 
 if (getEnvIsHTTPS()) {

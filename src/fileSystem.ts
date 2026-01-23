@@ -44,19 +44,25 @@ export function getWebpAlbumDir(dirPath: string, sizing: PictureSizing): string 
 }
 
 function calculateScale(fileSize: number): number {
-  if (fileSize > 5 * 1024 * 1024) {
-    return 0.1;
+  if (fileSize < 70000) {
+    return 1;
   }
-  if (fileSize > 2 * 1024 * 1024) {
-    return 0.25;
+  if (fileSize < 100000) {
+    return 0.9;
   }
-  if (fileSize > 1 * 1024 * 1024) {
-    return 0.3;
+  if (fileSize < 140000) {
+    return 0.75;
   }
-  if (fileSize > 500 * 1024) {
+  if (fileSize < 260000) {
     return 0.6;
   }
-  return 1;
+  if (fileSize < 350000) {
+    return 0.5;
+  }
+  if (fileSize < 500000) {
+    return 0.2;
+  }
+  return 0.1;
 }
 
 export async function imageToWebpData(
@@ -69,7 +75,7 @@ export async function imageToWebpData(
     const fileSize = await getFileSize(srcFilePath);
     wepbConfig = {
       quality: calculateScale(fileSize),
-      method: 2
+      method: 3
     };
   } else if (sizing === PictureSizing.ExtraReduced) {
     wepbConfig = {
@@ -79,7 +85,7 @@ export async function imageToWebpData(
       },
       size: SnapFileSize,
       // quality: 1,
-      method: 2
+      method: 3
     };
   }
   const distanationPath = path.dirname(desctinationFilePath);

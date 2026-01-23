@@ -8,15 +8,9 @@ export const AlbumsListSchema = new mongoose.Schema({
   albumSize: { type: Number, required: true },
   changedDate: { type: String, required: true },
   description: { type: String, trim: true },
-  locale: { type: String, required: false, enum: ["en", "ru"] }
-  // descriptionLocalized: {
-  //   en: { type: String, trim: true },
-  //   ru: { type: String, trim: true }
-  // }
-  // albumNameLocalized: {
-  //   en: { type: String, trim: true },
-  //   ru: { type: String, trim: true }
-  // },
+  locale: { type: String, required: false, enum: ["en", "ru"] },
+  /** "generating" | <generated id> */
+  otherLangCopyGenerated: { type: String, required: false }
 });
 
 // Text search optimization, single index

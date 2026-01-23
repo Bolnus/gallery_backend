@@ -4,14 +4,21 @@ import { GetObjectCommandOutput } from "@aws-sdk/client-s3";
 import qs from "qs";
 import { timeLog, timeWarn } from "../../log.js";
 import { handleError } from "../commonRequests.js";
-import { fileExists, getJoindedPath, imageToWebpData } from "../../fileSystem.js";
+import { fileExists, getJoindedPath, imageToWebpData, removePath } from "../../fileSystem.js";
 import { AlbumPicturesItemExport } from "../../database/pictures/types.js";
 import { ImagesClientCacheTime, PictureSizing } from "../../types.js";
 import { getWebpFilePathCommon } from "../../fileRouter.js";
 import { insertManyAlbumPictures, selectAlbumPictureById } from "../../database/pictures/albumPicturesCollection.js";
 import { getEnvGalleryCashLocation, getEnvS3BaseUrl } from "../../env.js";
 import { selectAlbumById } from "../../database/albums/albumsCollection.js";
-import { fileExistsInS3, getS3FileStream, putFileToS3, saveS3FileLocally } from "../../api/s3storage.js";
+import {
+  fileExistsInS3,
+  getS3FileStream,
+  listObjectsInS3Dir,
+  putFileToS3,
+  removeFilesGroupFromS3,
+  saveS3FileLocally
+} from "../../api/s3storage.js";
 import { arrangeImageFiles, parsePostPicturesBody, parsePutPicturesBody, saveNewImageFiles } from "./utils.js";
 
 export async function getPictureRequest(req: express.Request, res: express.Response): Promise<void> {
@@ -27,21 +34,30 @@ export async function getPictureRequest(req: express.Request, res: express.Respo
 
   try {
     const albumPicture = await selectAlbumPictureById(pictureId);
+    if (!albumPicture || !albumPicture?.fileFormat) {
+      timeWarn(`No picture found for id=${pictureId}`);
+      res.sendStatus(404);
+      return;
+    }
+    const album = await selectAlbumById(albumPicture?.album);
     const isS3 = !!getEnvS3BaseUrl();
     let webpFilePathLocal = "";
     let webpFilePathS3 = "";
     let webpImageData: Buffer | null = null;
     let fileStream: GetObjectCommandOutput | null = null;
-    if (albumPicture?.fileFormat?.replace(".", "") === "webp" && !sizing) {
+
+    if (albumPicture.fileFormat?.replace(".", "") === "webp" && !sizing) {
       if (isS3) {
         fileStream = await getS3FileStream(albumPicture.fullPath);
       } else {
         webpFilePathLocal = albumPicture.fullPath;
       }
-    } else if (albumPicture?.fileFormat) {
+    } else {
       webpFilePathS3 = getWebpFilePathCommon(albumPicture.fullPath, sizing);
       const galleryCashLocation = getEnvGalleryCashLocation();
-      const sourceFilePath = isS3 ? getJoindedPath(galleryCashLocation, albumPicture.fileName) : albumPicture.fullPath;
+      const sourceFilePath = isS3
+        ? getJoindedPath(galleryCashLocation, album?.albumName || "test", albumPicture.fileName)
+        : albumPicture.fullPath;
       webpFilePathLocal = getWebpFilePathCommon(sourceFilePath, sizing);
 
       // const webpFileSize = await getFileSize(webpFilePath);
@@ -54,6 +70,7 @@ export async function getPictureRequest(req: express.Request, res: express.Respo
             return;
           }
         }
+
         webpImageData = await imageToWebpData(sourceFilePath, webpFilePathLocal, sizing);
         if (!webpImageData) {
           res.status(500).send("Imagemin conversion error");
@@ -66,11 +83,8 @@ export async function getPictureRequest(req: express.Request, res: express.Respo
       // res.set("Content-Type", "image/webp");
       // res.set("Content-Disposition", `attachment; filename=${encodeURI(fileNameToWebp(albumPicture.fileName))}`);
       // res.send(webpImageData);
-    } else {
-      timeWarn(`No picture found for id=${pictureId}`);
-      res.sendStatus(404);
-      return;
     }
+
     if (fileStream && fileStream.Body instanceof Readable) {
       fileStream.Body.pipe(res);
     } else if (webpFilePathLocal) {
@@ -187,6 +201,35 @@ export async function putPicturesRequest(
     res.sendStatus(200);
   } catch (error) {
     handleError(error, res);
+    return;
+  }
+}
+
+export async function deletePicturesCache(req: express.Request, res: express.Response): Promise<void> {
+  timeLog(`DELETE | ${req.path}`);
+
+  try {
+    const isS3 = !!getEnvS3BaseUrl();
+    if (isS3) {
+      const contents = await listObjectsInS3Dir("");
+      const webpSnapPaths = contents.filter((s3Path) => s3Path.includes(".webpSnap"));
+      await removeFilesGroupFromS3(webpSnapPaths, true);
+      res.json(webpSnapPaths);
+      return;
+    }
+    const cashLocalPath = getEnvGalleryCashLocation();
+    const rc = await removePath(cashLocalPath, { recursive: true, force: true });
+    if (rc) {
+      timeLog(`Error removing cache images rc=${rc}`);
+      res.status(500).json({
+        title: "Error removing images!",
+        message: "Error removing images."
+      });
+      return;
+    }
+    res.json([cashLocalPath]);
+  } catch (localErr) {
+    handleError(localErr, res);
     return;
   }
 }

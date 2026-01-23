@@ -215,7 +215,7 @@ export async function selectAlbumsDataList({
   }
 }
 
-export async function selectAlbumById(albumId: string): Promise<AlbumsListItem | null> {
+export async function selectAlbumById(albumId: string | mongoose.Types.ObjectId): Promise<AlbumsListItem | null> {
   try {
     const album = await AlbumsListModel.findById(albumId);
     return album;

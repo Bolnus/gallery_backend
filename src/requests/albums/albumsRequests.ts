@@ -110,7 +110,7 @@ export async function putAlbumHeadersRequest(
       });
       return;
     }
-    
+
     if (reqBody.albumName !== oldAlbumName) {
       const rcUpdateAlbumName = await updateAlbumName(
         reqBody.id,
