@@ -1,7 +1,7 @@
 import express from "express";
 import qs from "qs";
 import { timeLog, timeWarn } from "../../log.js";
-import { deleteTagByName, getTagsWithCover, getTagsWithCoverLocale, selectTags } from "../../database/tags/tagsCollection.js";
+import { deleteTagByName, getTagsWithCoverLocale, selectTags } from "../../database/tags/tagsCollection.js";
 import { deleteTagDependencies } from "../../database/tags/tagAlbumsCollection.js";
 import { handleError } from "../commonRequests.js";
 import { isValidDeleteTagBody } from "./utils.js";
@@ -39,7 +39,7 @@ export async function getTagsRequest(req: express.Request, res: express.Response
 
   try {
     if (withCovers) {
-      const tagsWithCovers = await getTagsWithCover(); // Locale(locale);
+      const tagsWithCovers = await getTagsWithCoverLocale(locale);
       res.json(tagsWithCovers);
       return;
     }

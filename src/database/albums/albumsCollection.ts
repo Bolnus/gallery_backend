@@ -9,6 +9,7 @@ import {
   AlbumsListWithTotal
 } from "./types.js";
 import { AlbumsListSorting } from "../../requests/albums/types.js";
+import { timeLog } from "../../log.js";
 
 const AlbumsListModel = mongoose.model("album", AlbumsListSchema);
 
@@ -257,7 +258,7 @@ export async function updateAlbumById(
       fullPath,
       changedDate: new Date().toISOString(),
       description,
-      locale
+      locale: locale || ""
     });
     return 0;
   } catch (localErr) {
@@ -312,10 +313,42 @@ export async function updateAlbumDescriptionById(
     await AlbumsListModel.findByIdAndUpdate(albumId, {
       changedDate: new Date().toISOString(),
       description,
-      locale: locale || null
+      locale: locale || ""
     });
     return 0;
   } catch (localErr) {
     return handleDataBaseError(localErr, "updateAlbumDescriptionById");
+  }
+}
+
+export async function setLocaleFieldDefaults(): Promise<number> {
+  try {
+    const updateResult = await AlbumsListModel.updateMany(
+      {
+        $or: [{ locale: { $exists: false } }, { locale: null }]
+      },
+      {
+        $set: { locale: "" }
+      }
+    );
+
+    timeLog(`Locale migration: Updated ${updateResult.modifiedCount} documents`);
+    return 0;
+  } catch (localErr) {
+    return handleDataBaseError(localErr, "setLocaleFieldDefaults");
+  }
+}
+
+export async function createAlbumIndexes(): Promise<number> {
+  try {
+    await Promise.all([
+      AlbumsListModel.collection.createIndex({ locale: 1 }),
+      AlbumsListModel.collection.createIndex({ albumName: 1, locale: 1 })
+    ]);
+
+    timeLog("AlbumsListModel indexes created");
+    return 0;
+  } catch (localErr) {
+    return handleDataBaseError(localErr, "createAlbumIndexes");
   }
 }

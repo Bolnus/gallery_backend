@@ -5,6 +5,9 @@ export const AlbumTagsSchema = new mongoose.Schema({
   tagName: { type: String, required: true },
   albumName: { type: String, required: true }
 });
+AlbumTagsSchema.index({ tagName: 1 });
+AlbumTagsSchema.index({ albumName: 1 });
+AlbumTagsSchema.index({ albumName: 1, tagName: 1 });
 AlbumTagsSchema.index({ tagName: 1, albumName: 1 }, { unique: true });
 
 export type AlbumTagsItem = InferSchemaType<typeof AlbumTagsSchema>;

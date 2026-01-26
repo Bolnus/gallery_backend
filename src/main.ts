@@ -112,6 +112,11 @@ if (getEnvIsHTTPS()) {
   app.listen(portNumber);
 }
 
-// console.log(new URL('//Test10%20Server/.webpSnap/pic_0002.webp', 'https://127.0.0.1'))
+// await pipeMigrationFunctions([
+//   setLocaleFieldDefaults,
+//   createAlbumIndexes,
+//   createTagDepsIndexes,
+//   createAlbumPicturesIndexes
+// ]);
 
 export default app;

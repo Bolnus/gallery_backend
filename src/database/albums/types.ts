@@ -8,13 +8,15 @@ export const AlbumsListSchema = new mongoose.Schema({
   albumSize: { type: Number, required: true },
   changedDate: { type: String, required: true },
   description: { type: String, trim: true },
-  locale: { type: String, required: false, enum: ["en", "ru"] },
+  locale: { type: String, required: true, enum: ["en", "ru", ""] },
   /** "generating" | <generated id> */
   otherLangCopyGenerated: { type: String, required: false }
 });
 
 // Text search optimization, single index
 AlbumsListSchema.index({ albumName: "text" });
+AlbumsListSchema.index({ locale: 1 }); // Filtering
+AlbumsListSchema.index({ albumName: 1, locale: 1 }); // Composite for filtered lookups
 // AlbumsListSchema.index(
 //   {
 //     albumName: "text",

@@ -30,7 +30,7 @@ export async function selectAlbumData(albumId: string, locale?: string): Promise
     description: album.description,
     tags: albumTags,
     pictureIds: albumPictures,
-    locale: album.locale
+    locale: album.locale || ""
   };
   return exportAlbumData;
 }
@@ -48,6 +48,7 @@ export async function selectAlbumHeaders(albumId: string): Promise<AlbumsDataLis
     changedDate: album.changedDate,
     tags: albumTags,
     description: album.description,
+    locale: album.locale,
     pictureIds: []
   };
   return exportAlbumData;

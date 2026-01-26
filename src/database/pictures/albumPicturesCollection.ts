@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { handleDataBaseError, mapObjectIdsToString } from "../database.js";
 import { AlbumPicturesItem, AlbumPicturesItemExport, AlbumPicturesSchema } from "./types.js";
+import { timeLog } from "../../log.js";
 
 const AlbumPicturesModel = mongoose.model("albumPicture", AlbumPicturesSchema);
 
@@ -135,5 +136,19 @@ export async function updateAlbumPictureById(
     return 0;
   } catch (localErr) {
     return handleDataBaseError(localErr, "updateAlbumPictureById");
+  }
+}
+
+export async function createAlbumPicturesIndexes(): Promise<number> {
+  try {
+    await Promise.all([
+      AlbumPicturesModel.collection.createIndex({ album: 1, pictureNumber: 1 }),
+      AlbumPicturesModel.collection.createIndex({ pictureNumber: 1 }),
+      AlbumPicturesModel.collection.createIndex({ album: 1 })
+    ]);
+    timeLog("AlbumPicturesModel indexes created");
+    return 0;
+  } catch (localErr) {
+    return handleDataBaseError(localErr, "createAlbumPicturesIndexes");
   }
 }

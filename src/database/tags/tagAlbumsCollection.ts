@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { handleDataBaseError } from "../database.js";
 import { AlbumTagsItem, AlbumTagsSchema, CountedId, TagItem, TagWithId } from "./types.js";
+import { timeLog } from "../../log.js";
 
 // export type AlbumTagsItemExport = AlbumTagsItem & DocumentObjectId;
 
@@ -84,5 +85,19 @@ export async function deleteTagDependencies(tagName: string): Promise<number> {
     return 0;
   } catch (localErr) {
     return handleDataBaseError(localErr, "deleteTagByName");
+  }
+}
+
+export async function createTagDepsIndexes(): Promise<number> {
+  try {
+    await Promise.all([
+      AlbumTagsModel.collection.createIndex({ tagName: 1 }),
+      AlbumTagsModel.collection.createIndex({ albumName: 1 }),
+      AlbumTagsModel.collection.createIndex({ albumName: 1, tagName: 1 })
+    ]);
+    timeLog("AlbumTagsModel indexes created");
+    return 0;
+  } catch (localErr) {
+    return handleDataBaseError(localErr, "createTagDepsIndexes");
   }
 }

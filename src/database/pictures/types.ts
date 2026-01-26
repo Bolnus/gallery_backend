@@ -8,6 +8,9 @@ export const AlbumPicturesSchema = new mongoose.Schema({
   pictureNumber: { type: Number, required: true },
   album: { type: mongoose.Schema.Types.ObjectId, ref: "album", required: true }
 });
+AlbumPicturesSchema.index({ album: 1, pictureNumber: 1 }); // MOST IMPORTANT
+AlbumPicturesSchema.index({ pictureNumber: 1 }); // Optional, helps if you filter by pictureNumber alone
+AlbumPicturesSchema.index({ album: 1 }); // For general album queries
 
 export type AlbumPicturesItem = InferSchemaType<typeof AlbumPicturesSchema>;
 export type AlbumPicturesItemExport = AlbumPicturesItem & DocumentObjectId;
