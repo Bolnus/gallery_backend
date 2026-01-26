@@ -39,7 +39,8 @@ export async function initAllAlbums(
           albumName: file,
           fullPath: filePath,
           changedDate: stats.mtime.toISOString(),
-          albumSize: subAlbumSize
+          albumSize: subAlbumSize,
+          locale: ""
         };
 
         let newAlbumId: mongoose.Types.ObjectId | null = null;
