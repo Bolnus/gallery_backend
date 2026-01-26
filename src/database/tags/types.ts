@@ -22,3 +22,5 @@ export interface CountedId {
   _id: string;
   albumsCount: number;
 }
+
+export type TagItemWithCover = TagItem & { coverId: string };

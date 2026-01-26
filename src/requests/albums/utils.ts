@@ -63,7 +63,7 @@ export function isValidAlbumHeadersBody(
     });
     return false;
   }
-  if (reqBody?.locale !== undefined && typeof reqBody?.locale !== "string") {
+  if (reqBody?.locale !== null && reqBody?.locale !== undefined && typeof reqBody?.locale !== "string") {
     res.status(400).json({
       title: dataError,
       message: "Wrong locale type"

@@ -1,6 +1,7 @@
 import express from "express";
+import qs from "qs";
 import { timeLog, timeWarn } from "../../log.js";
-import { deleteTagByName, selectTags } from "../../database/tags/tagsCollection.js";
+import { deleteTagByName, getTagsWithCover, getTagsWithCoverLocale, selectTags } from "../../database/tags/tagsCollection.js";
 import { deleteTagDependencies } from "../../database/tags/tagAlbumsCollection.js";
 import { handleError } from "../commonRequests.js";
 import { isValidDeleteTagBody } from "./utils.js";
@@ -29,9 +30,19 @@ export async function deleteTagRequest(
 
 export async function getTagsRequest(req: express.Request, res: express.Response): Promise<void> {
   // const endpoint = baseEndPoint + req.params.endpoint;
-  timeLog(`GET | ${req.path}`);
+  timeLog(`GET | ${req.path}?${qs.stringify(req.query, { format: "RFC3986" })}`);
+  const withCovers = req.query?.withCovers ? Number(req.query?.withCovers) : 0;
+  let locale: string | undefined;
+  if (req.query?.locale && typeof req.query.locale === "string") {
+    locale = req.query.locale;
+  }
 
   try {
+    if (withCovers) {
+      const tagsWithCovers = await getTagsWithCover(); // Locale(locale);
+      res.json(tagsWithCovers);
+      return;
+    }
     const tagsList = await selectTags();
     res.json(tagsList);
   } catch (error) {
