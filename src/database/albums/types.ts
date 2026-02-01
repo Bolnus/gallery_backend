@@ -8,7 +8,7 @@ export const AlbumsListSchema = new mongoose.Schema({
   albumSize: { type: Number, required: true },
   changedDate: { type: String, required: true },
   description: { type: String, trim: true },
-  locale: { type: String, required: true, enum: ["en", "ru", ""] },
+  locale: { type: String, required: false, enum: ["en", "ru", ""] },
   /** "generating" | <generated id> */
   otherLangCopyGenerated: { type: String, required: false }
 });
