@@ -35,7 +35,7 @@ import {
 } from "./requests/tootles/tootlesRequests.js";
 import { getCorsOptions } from "./corsUtils.js";
 import { getUploadMiddleware } from "./middlewares/upload.js";
-import { getLimiterMiddleware } from "./middlewares/limiter.js";
+import { getLimiterMiddleware, getRateLimitCollection } from "./middlewares/limiter.js";
 import { getSessionMiddleware } from "./middlewares/session.js";
 import { getHelmetMiddleware } from "./middlewares/helmet.js";
 
@@ -56,6 +56,7 @@ initS3Client();
 const baseEndPoint = getEnvBaseEndpoint();
 
 const app = express().disable("x-powered-by");
+const rateLimitCollection = await getRateLimitCollection(dbClient);
 app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 app.use(bodyParser.json({ limit: "50mb" }));
 app.use(getSessionMiddleware(dbClient));
@@ -91,7 +92,7 @@ app.put(
 );
 app.delete(`${baseEndPoint}/tags`, authMiddleware as RequestHandler, deleteTagRequest as RequestHandler);
 app.post(`${baseEndPoint}/auth/init`, generateDefaultTootlesRequest as RequestHandler);
-app.post(`${baseEndPoint}/auth/login`, getLimiterMiddleware(dbClient), tootleLoginRequest as RequestHandler);
+app.post(`${baseEndPoint}/auth/login`, getLimiterMiddleware(rateLimitCollection), tootleLoginRequest as RequestHandler);
 app.post(`${baseEndPoint}/auth/logout`, tootleLogoutRequest as RequestHandler);
 app.get(`${baseEndPoint}/auth/get_user`, getTootleRequest as RequestHandler);
 app.delete(`${baseEndPoint}/pictures/cache`, authMiddleware as RequestHandler, deletePicturesCache as RequestHandler);

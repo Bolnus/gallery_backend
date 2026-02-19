@@ -2,20 +2,25 @@ import rateLimit, { RateLimitRequestHandler } from "express-rate-limit";
 import mongoose from "mongoose";
 import { MongoDBStoreOptions, MongoDBStore as RateLimitMongoStore } from "@iroomit/rate-limit-mongodb";
 import { getEnvConnectionString, getEnvGalleryName } from "../env.js";
-import { timeLog } from "../log.js";
+import { timeLog, timeWarn } from "../log.js";
 
-export function getLimiterMiddleware(dbClient: typeof mongoose): RateLimitRequestHandler {
+export function getLimiterMiddleware(
+  collection?: mongoose.mongo.Collection<mongoose.mongo.BSON.Document>
+): RateLimitRequestHandler {
   const connectionString = `${getEnvConnectionString()}${getEnvGalleryName()}`;
-  const collection = dbClient.connection.db?.collection("rate_limits");
   let config: MongoDBStoreOptions;
   if (collection) {
     config = {
-      collection
+      collection,
+      createTtlIndex: true,
+      resetExpireDateOnChange: true
     };
   } else {
     timeLog(`Limiter connect: ${connectionString}`);
     config = {
-      uri: connectionString
+      uri: connectionString,
+      createTtlIndex: true,
+      resetExpireDateOnChange: true
     };
   }
   return rateLimit({
@@ -28,4 +33,20 @@ export function getLimiterMiddleware(dbClient: typeof mongoose): RateLimitReques
     },
     store: new RateLimitMongoStore(config)
   });
+}
+
+export async function getRateLimitCollection(
+  dbClient: mongoose.Mongoose
+): Promise<mongoose.mongo.Collection<mongoose.mongo.BSON.Document> | undefined> {
+  try {
+    const rateLimitCollection = dbClient.connection.db?.collection("rate_limits");
+    if (rateLimitCollection) {
+      await rateLimitCollection.createIndex({ expirationDate: 1 }, { expireAfterSeconds: 0 });
+    }
+    return rateLimitCollection;
+  } catch (localError) {
+    timeWarn("Error creating rate limit collection");
+    console.log(localError);
+    return undefined;
+  }
 }
