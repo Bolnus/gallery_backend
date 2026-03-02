@@ -7,7 +7,6 @@ import {
   deleteAlbumById,
   selectAlbumById,
   selectAlbumByName,
-  selectAlbumPathById,
   selectAlbumsDataList,
   updateAlbumDescriptionById
 } from "../../database/albums/albumsCollection.js";
@@ -19,6 +18,8 @@ import { getEnvS3BaseUrl } from "../../env.js";
 import { deletePicturesByAlbumId } from "../../database/pictures/albumPicturesCollection.js";
 import { GetAlbumQuery, GetAlbumsListQuery } from "./types.js";
 import { getValidSortFromString, isValidAlbumHeadersBody, isValidAlbumIdObject, updateAlbumName } from "./utils.js";
+import { selectAlbumTags } from "../../database/tags/tagAlbumsCollection.js";
+import { updateAlbumsCount } from "../../database/tags/tagsCollection.js";
 
 export async function getAlbumsListRequest(
   req: express.Request<unknown, unknown, unknown, GetAlbumsListQuery>,
@@ -213,7 +214,7 @@ export async function postAlbumRequest(
       albumSize: 0,
       locale: reqBody.locale
     };
-    const objectID = await insertAlbumWithTags(albumInfo, reqBody.tags);
+    const objectID = await insertAlbumWithTags(albumInfo, reqBody.tags, true);
 
     res.status(200).json({ id: String(objectID) });
   } catch (error) {
@@ -232,7 +233,8 @@ export async function deleteAlbumRequest(
     if (!isValidAlbumIdObject(reqData, res)) {
       return;
     }
-    const albumPath = await selectAlbumPathById(reqData.id);
+    const album = await selectAlbumById(reqData.id);
+    const albumPath = album?.fullPath;
     if (!albumPath) {
       res.status(404).json({
         title: "No album found by ID",
@@ -270,6 +272,10 @@ export async function deleteAlbumRequest(
       return;
     }
     await deletePicturesByAlbumId(reqData.id);
+    const albumTags = await selectAlbumTags(album.albumName);
+    for (const tagName of albumTags) {
+      await updateAlbumsCount(tagName.tagName, -1);
+    }
 
     res.sendStatus(200);
   } catch (error) {
